@@ -3,6 +3,7 @@
 /emscripten/web/*.js
 /emscripten/web/*.wasm
 /reports/*.json
+/reports/
 
 # Local tooling
 .cache/
