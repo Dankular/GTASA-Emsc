@@ -84,6 +84,21 @@ int sa_runtime_enter_interior(int id) { return g_runtime.enterInterior(id) ? 0 :
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
 #endif
+int sa_runtime_script_smoke() { return browsergamert::runSaAdapterSmoke(); }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_dispatch_script(int opcode) { return g_runtime.dispatchScript(static_cast<uint16_t>(opcode)) ? 0 : 1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_ped_count() { return static_cast<int>(g_runtime.peds().size()); }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
 float sa_runtime_vehicle_x() { return g_runtime.vehicle().position.x; }
 
 #ifdef __EMSCRIPTEN__

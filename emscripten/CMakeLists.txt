@@ -9,6 +9,7 @@ target_sources(sa_port_probe PRIVATE ../runtime/src/browser_game_rt.cpp)
 target_sources(sa_port_probe PRIVATE ../runtime/src/sa_subsystem_bridge.cpp)
 target_sources(sa_port_probe PRIVATE ../runtime/src/sa_adapters.cpp)
 target_sources(sa_port_probe PRIVATE ../runtime/src/sa_services.cpp)
+target_sources(sa_port_probe PRIVATE ../runtime/src/sa_world_stream.cpp)
 target_include_directories(sa_port_probe PRIVATE ../runtime/include)
 target_compile_definitions(sa_port_probe PRIVATE BROWSER_GAME_RT_PROBE=1)
 
@@ -19,6 +20,8 @@ if(NOT EMSCRIPTEN)
     target_include_directories(sa_services_test PRIVATE ../runtime/include)
     add_executable(sa_img_archive_test ../runtime/tests/sa_img_archive_test.cpp ../runtime/src/sa_img_archive.cpp ../runtime/src/sa_rw_dff.cpp)
     target_include_directories(sa_img_archive_test PRIVATE ../runtime/include)
+    add_executable(sa_world_stream_test ../runtime/tests/sa_world_stream_test.cpp ../runtime/src/sa_world_stream.cpp ../runtime/src/sa_img_archive.cpp)
+    target_include_directories(sa_world_stream_test PRIVATE ../runtime/include)
 endif()
 
 if(EMSCRIPTEN)
@@ -33,7 +36,7 @@ if(EMSCRIPTEN)
         "-sUSE_WEBGL2=1"
         "-sFORCE_FILESYSTEM=1"
         "-sEXPORTED_RUNTIME_METHODS=['FS']"
-        "-sEXPORTED_FUNCTIONS=['_main','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier','_sa_subsystems_boundary_ready','_sa_adapter_smoke','_sa_services_smoke','_sa_runtime_init','_sa_runtime_tick','_sa_runtime_enter_vehicle','_sa_runtime_enter_interior','_sa_runtime_vehicle_x','_sa_runtime_vehicle_y','_sa_runtime_vehicle_heading','_sa_runtime_interior_active']"
+        "-sEXPORTED_FUNCTIONS=['_main','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier','_sa_subsystems_boundary_ready','_sa_adapter_smoke','_sa_services_smoke','_sa_runtime_init','_sa_runtime_tick','_sa_runtime_enter_vehicle','_sa_runtime_enter_interior','_sa_runtime_script_smoke','_sa_runtime_dispatch_script','_sa_runtime_ped_count','_sa_runtime_vehicle_x','_sa_runtime_vehicle_y','_sa_runtime_vehicle_heading','_sa_runtime_interior_active']"
     )
 else()
     message(STATUS "Configuring the native probe; use emcmake for the browser artifact")
