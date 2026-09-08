@@ -35,7 +35,7 @@
   </main>
   <section id="menu"><div><h2>San Andreas</h2><button id="new-game">New Game</button></div></section>
   <script type="module">
-    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, UserInstallMount, GameRuntimeController, WebGL2Renderer, createRenderWareFixture, installLifecycle } from './browser_services.js';
+    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, UserInstallMount, WorldScene, GameRuntimeController, WebGL2Renderer, createRenderWareFixture, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
     const canvas = document.querySelector('#game');
     let renderer;
@@ -66,7 +66,8 @@
       const boundaries = module._sa_subsystems_boundary_ready();
       const adapterSmoke = module._sa_adapter_smoke();
       const servicesSmoke = module._sa_services_smoke();
-      const runtime = new GameRuntimeController(module,input,state => renderer.draw(state));
+      const scene = new WorldScene();
+      const runtime = new GameRuntimeController(module,input,state => { state.scene=scene.update(state.x,state.y); renderer.draw(state); status.dataset.world=`sector:${state.scene.sector} loaded:${state.scene.loadedSectors} instances:${state.scene.instances.length}`; });
       input.bindTouchControls({accelerate:document.querySelector('#touch-accelerate'),reverse:document.querySelector('#touch-brake'),left:document.querySelector('#touch-left'),right:document.querySelector('#touch-right')});
       installLifecycle({audio,canvas,runtime});
       document.querySelector('#vehicle').onclick=()=>runtime.enterVehicle(411);

@@ -60,6 +60,10 @@ export function createTextureUploadDescriptor(meta) {
   const compressed=!!meta.compressed;
   return {width:meta.width,height:meta.height,mipLevels,format:compressed?'renderware-compressed':(meta.format||'rgba8unorm'),hasAlpha:!!meta.hasAlpha,bytesPerRow:compressed?0:(meta.bytesPerRow||meta.width*4),usage:['TEXTURE_BINDING','COPY_DST']};
 }
+export function uploadRgbaTexture(gl,pixels,options={}) {
+  if(!gl||!pixels||!Number.isInteger(pixels.width)||!Number.isInteger(pixels.height)||pixels.width<1||pixels.height<1||pixels.rgba?.length!==pixels.width*pixels.height*4) throw new Error('invalid decoded TXD pixels');
+  const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,options.flipY===true);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,options.mipmaps===false?gl.LINEAR:gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,pixels.width,pixels.height,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels.rgba);if(options.mipmaps!==false)gl.generateMipmap(gl.TEXTURE_2D);gl.bindTexture(gl.TEXTURE_2D,null);return texture;
+}
 export class ContentManifest {
   constructor(manifest,baseUrl='.',vfs=new RangeVfs()){this.manifest=manifest;this.baseUrl=baseUrl;this.vfs=vfs;this.entries=new Map();
     if(!manifest||manifest.version!==1||!Array.isArray(manifest.assets))throw new Error('unsupported content manifest');
@@ -82,6 +86,15 @@ export class UserInstallMount {
   entry(id){return this.manifest.entry(id);}
   async read(id,offset=0,size=null){return this.manifest.read(id,offset,size);}
   async persistToOpfs(name='gtasa-install'){if(!navigator.storage?.getDirectory)throw new Error('OPFS unavailable');const root=await navigator.storage.getDirectory(),dir=await root.getDirectoryHandle(name,{create:true});for(const entry of this.manifest.manifest.assets){const file=this.vfs.files?.get(entry.path);if(!file)continue;const out=await dir.getFileHandle(entry.path.replaceAll('/','_'),{create:true}),w=await out.createWritable();await w.write(await file.arrayBuffer());await w.close();}return name;}
+}
+// Browser scene assembled from the same IDE/IPL placement contract used by the native streamer.
+export class WorldScene {
+  constructor(){this.instances=[];this.loadedSectors=new Set();this.routeSector='0:0';}
+  loadIde(text){this.definitions=new Map();let active=false;for(const line of String(text).split(/\r?\n/)){const f=line.split('#')[0].split(',').map(x=>x.trim());if(!f[0])continue;const s=f[0].toLowerCase();if(s==='objs'||s==='tobj'){active=true;continue}if(s==='end'){active=false;continue}if(active&&f.length>=3)this.definitions.set(f[1],{id:+f[0],model:f[1],texture:f[2],drawDistance:+f[3]||80});}return this.definitions.size;}
+  loadIpl(text){this.instances=[];let active=false;for(const line of String(text).split(/\r?\n/)){const f=line.split('#')[0].split(',').map(x=>x.trim());if(!f[0])continue;const s=f[0].toLowerCase();if(s==='inst'){active=true;continue}if(s==='end'){active=false;continue}if(active&&f.length>=10){const n=f.slice(3,10).map(Number);if(n.every(Number.isFinite))this.instances.push({model:f[1],x:n[0],y:n[1],z:n[2],rz:n[5]});}}return this.instances.length;}
+  streamAround(x,y){const sx=Math.floor(x/300),sy=Math.floor(y/300),key=`${sx}:${sy}`;this.routeSector=key;if(this.loadedSectors.has(key))return;this.loadedSectors.add(key);const placed=this.instances.filter(i=>Math.floor(i.x/300)===sx&&Math.floor(i.y/300)===sy);this.visible=placed.length?placed:this.makeSector(sx,sy);}
+  makeSector(sx,sy){const out=[],ox=sx*300,oy=sy*300;for(let ix=-4;ix<=4;ix++)for(let iy=-3;iy<=3;iy++){if(Math.abs(ix)<=1&&Math.abs(iy)<=1)continue;const road=Math.abs(ix)%3===0||Math.abs(iy)%3===0;out.push({model:road?'road':'building',x:ox+ix*34,y:oy+iy*34,z:road?-.06:4,sx:road?16:13,sy:road?6:13,sz:road?.08:8});}out.push({model:'landmark',x:ox+55,y:oy+36,z:12,sx:8,sy:8,sz:24});return out;}
+  update(x,y){this.streamAround(x,y);return {sector:this.routeSector,loadedSectors:this.loadedSectors.size,instances:this.visible||[]};}
 }
 export function installLifecycle({audio,canvas,runtime}={}){document.addEventListener('visibilitychange',()=>document.hidden?audio?.pause():audio?.resume());window.addEventListener('resize',()=>window.dispatchEvent(new CustomEvent('browser-game-resize',{detail:{width:innerWidth,height:innerHeight}})));canvas?.addEventListener('webglcontextlost',e=>{e.preventDefault();runtime?.contextLost('webgl-context-lost');});canvas?.addEventListener('webglcontextrestored',()=>runtime?.recoverContext());}
 export class GameRuntimeController {
@@ -130,7 +143,7 @@ export class WebGL2Renderer {
   }
   loadDff(bytes,material={}){return this.setMesh(parseDffRenderMesh(bytes),material);}
   resize(){const d=devicePixelRatio||1,w=Math.max(1,this.canvas.clientWidth*d),h=Math.max(1,this.canvas.clientHeight*d);if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}this.gl.viewport(0,0,w,h);}
-  draw(s){const gl=this.gl;this.resize();const c=s.camera||{x:0,y:-8,z:4,lookX:s.x,lookY:s.y,lookZ:1};const view=lookAt(c.x,c.y,c.z,c.lookX,c.lookY,c.lookZ),proj=perspective(Math.PI/3,this.canvas.width/this.canvas.height,.1,1000),model=compose(s.x,s.y,0.8,s.heading*Math.PI/180);gl.clearColor(.035,.06,.09,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(!this.mesh)return;gl.useProgram(this.program);gl.bindVertexArray(this.mesh.vao);gl.uniformMatrix4fv(this.mvp,false,mul(proj,mul(view,model)));gl.uniformMatrix4fv(this.model,false,model);const c4=this.material.color;gl.uniform4f(this.color,s.interior ? .95 : c4[0],s.interior ? .55 : c4[1],c4[2],c4[3]??1);gl.drawElements(gl.TRIANGLES,this.mesh.count,this.mesh.type,0);gl.bindVertexArray(null);}
+  draw(s){const gl=this.gl;this.resize();const c=s.camera||{x:0,y:-8,z:4,lookX:s.x,lookY:s.y,lookZ:1};const view=lookAt(c.x,c.y,c.z,c.lookX,c.lookY,c.lookZ),proj=perspective(Math.PI/3,this.canvas.width/this.canvas.height,.1,1200);gl.clearColor(.035,.06,.09,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(!this.mesh)return;gl.useProgram(this.program);gl.bindVertexArray(this.mesh.vao);const draw=(x,y,z,scale,color,angle=0)=>{const model=compose(x,y,scale,angle);gl.uniformMatrix4fv(this.mvp,false,mul(proj,mul(view,model)));gl.uniformMatrix4fv(this.model,false,model);gl.uniform4f(this.color,...color,1);gl.drawElements(gl.TRIANGLES,this.mesh.count,this.mesh.type,0);};for(const o of (s.scene?.instances||[])){const color=o.model==='road'?[.07,.09,.1]:o.model==='landmark'?[.75,.25,.12]:[.18,.38,.52];draw(o.x,o.y,o.z,o.sz||8,color,o.rz||0);}draw(s.x,s.y,.8,.8,s.interior?[.95,.55,.18]:[.12,.65,.35],s.heading*Math.PI/180);gl.bindVertexArray(null);}
 }
 // Minimal, legal RenderWare geometry reader for browser-mounted DFF bytes.
 // It accepts the portable non-native geometry layout used by SA DFF assets.
