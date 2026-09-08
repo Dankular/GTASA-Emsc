@@ -12,6 +12,11 @@ proves that this repository can produce an ES-module WebAssembly artifact and
 launch it from a canvas without pulling the original executable into the
 browser. It is a port-health check, not a playable game.
 
+The additive `runtime/` scaffold covers the first actionable Phase 2 gaps:
+capability/tier reporting, controlled device-loss state, render-graph hazard
+validation and a priority stream scheduler. See [`TASK_LEDGER.md`](TASK_LEDGER.md)
+for the dependency map and source-dependent blockers.
+
 ```powershell
 emscripten\scripts\build-web.ps1
 python -m http.server 8080 --directory emscripten\web
@@ -35,4 +40,3 @@ The acceptance gate is defined in
 `PLAY_III_WEB_STACK_CODEX.md`, section 68 (`P1.6`). Phase 2 does not begin
 until that gate has a tagged `sa.wasm` build with browser input, audio, saves,
 asset loading and a representative gameplay smoke route.
-

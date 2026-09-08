@@ -25,8 +25,18 @@
       const module = await factory({ print: console.log, printErr: console.error });
       const phase = module._sa_port_phase();
       const emscripten = module._sa_port_is_emscripten();
+      const webgpu = !!navigator.gpu;
+      let adapter = null;
+      let features = [];
+      if (webgpu) {
+        adapter = await navigator.gpu.requestAdapter();
+        if (adapter) features = [...adapter.features];
+      }
       status.className = 'ok';
-      status.textContent = JSON.stringify({ ok: true, phase, emscripten }, null, 2);
+      status.textContent = JSON.stringify({ ok: true, phase, emscripten,
+        rendererTier: webgpu && adapter ? 'webgpu-core' : 'legacy-webgl2',
+        webgpu, adapter: adapter?.info?.vendor || adapter?.name || null,
+        optionalFeatures: features, deviceLoss: 'controlled-state-ready' }, null, 2);
     } catch (error) {
       status.className = 'error';
       status.textContent = `Probe failed: ${error?.stack || error}`;
@@ -34,4 +44,3 @@
   </script>
 </body>
 </html>
-
