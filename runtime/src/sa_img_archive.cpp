@@ -12,9 +12,10 @@ bool ImgArchive::open(const std::string& path) {
   if (!in || std::memcmp(magic, "VER2", 4) != 0 || count > 1000000) return false;
   std::vector<ImgEntry> parsed; parsed.reserve(count);
   for (uint32_t i=0; i<count; ++i) {
-    uint32_t block=0, streaming=0, size=0; char name[24]{};
+    // IMG v2 directory records are 32 bytes: block offset, block length,
+    // and a 24-byte NUL-padded filename. There is no third integer field.
+    uint32_t block=0, size=0; char name[24]{};
     in.read(reinterpret_cast<char*>(&block), 4);
-    in.read(reinterpret_cast<char*>(&streaming), 4);
     in.read(reinterpret_cast<char*>(&size), 4);
     in.read(name, sizeof(name));
     if (!in) return false;

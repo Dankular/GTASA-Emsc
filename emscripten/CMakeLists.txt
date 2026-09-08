@@ -17,7 +17,7 @@ if(NOT EMSCRIPTEN)
     target_include_directories(sa_adapter_test PRIVATE ../runtime/include)
     add_executable(sa_services_test ../runtime/tests/sa_services_test.cpp ../runtime/src/sa_services.cpp ../runtime/src/sa_adapters.cpp)
     target_include_directories(sa_services_test PRIVATE ../runtime/include)
-    add_executable(sa_img_archive_test ../runtime/tests/sa_img_archive_test.cpp ../runtime/src/sa_img_archive.cpp)
+    add_executable(sa_img_archive_test ../runtime/tests/sa_img_archive_test.cpp ../runtime/src/sa_img_archive.cpp ../runtime/src/sa_rw_dff.cpp)
     target_include_directories(sa_img_archive_test PRIVATE ../runtime/include)
 endif()
 
