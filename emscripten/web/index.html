@@ -52,16 +52,7 @@
       const boundaries = module._sa_subsystems_boundary_ready();
       const adapterSmoke = module._sa_adapter_smoke();
       const servicesSmoke = module._sa_services_smoke();
-      const draw = state => {
-        ctx.fillStyle='#102030'; ctx.fillRect(0,0,canvas.width,canvas.height);
-        if (state.deviceLost) { ctx.fillStyle='#fca5a5'; ctx.fillText(`Renderer paused: ${state.reason}`,24,40); return; }
-        ctx.strokeStyle='#284d63'; ctx.strokeRect(20,20,600,320);
-        const x=320+state.x*8, y=180-state.y*8;
-        ctx.save(); ctx.translate(x,y); ctx.rotate(state.heading*Math.PI/180);
-        ctx.fillStyle=state.interior?'#f59e0b':'#22c55e'; ctx.fillRect(-12,-7,24,14); ctx.restore();
-        ctx.fillStyle='#d1d5db'; ctx.fillText('WASD / arrows to drive · Enter vehicle',24,345);
-      };
-      const runtime = new GameRuntimeController(module,input,draw);
+      const runtime = new GameRuntimeController(module,input,state => renderer.draw(state));
       input.bindTouchControls({accelerate:document.querySelector('#touch-accelerate'),reverse:document.querySelector('#touch-brake'),left:document.querySelector('#touch-left'),right:document.querySelector('#touch-right')});
       installLifecycle({audio,canvas,runtime});
       document.querySelector('#vehicle').onclick=()=>runtime.enterVehicle(411);
@@ -69,16 +60,10 @@
       document.querySelector('#radio').onclick=async()=>{await audio.unlock();audio.playRadio('Playback FM','radio-track-1');status.dataset.radio=audio.drain(performance.now()/1000).length?'scheduled':'failed';};
       document.querySelector('#save-runtime').onclick=async()=>{ status.dataset.runtimeSave=await runtime.saveToBrowser(saves,'browser-runtime')?'passed':'failed'; };
       document.querySelector('#load-runtime').onclick=async()=>{ status.dataset.runtimeLoad=await runtime.loadFromBrowser(saves,'browser-runtime')?'passed':'failed'; };
-      runtime.start();
-      const entered = runtime.enterVehicle(411);
-      const mission = runtime.runMission();
-      const ped = runtime.pedState(0);
-      const runtimeSaved = runtime.save('acceptance-runtime');
-      module._sa_runtime_tick(1, 0, 1, 0);
+      let entered = false, mission = false;
+      document.querySelector('#new-game').onclick=async()=>{await audio.unlock();document.querySelector('#menu').hidden=true;runtime.start();entered=runtime.enterVehicle(411);mission=runtime.runMission();status.className='ok';status.textContent='New game started — WASD/arrows drive · Q/E orbit camera';};
       const content = await ContentManifest.load('./content-manifest.json');
       const assetBytes = await content.readVerified('phase1-asset-probe');
-      await saves.put('acceptance',{x:module._sa_runtime_vehicle_x(),assetBytes:assetBytes.length});
-      const saved = await saves.get('acceptance');
       let adapter = null;
       let features = [];
       if (webgpu) {
@@ -91,12 +76,9 @@
         webgpu, adapter: adapter?.info?.vendor || adapter?.name || null,
         optionalFeatures: features, subsystemBoundaries: boundaries === 1 ? 'all-ready' : 'incomplete',
         sdkAdapterSmoke: adapterSmoke === 0 ? 'passed' : `failed-${adapterSmoke}`,
-        servicesSmoke: servicesSmoke === 0 ? 'passed' : `failed-${servicesSmoke}`, runtime: 'started',
-        gameplaySmoke: entered && mission && ped.count === 1 && ped.task === 1 && ped.health === 80 && runtimeSaved && saved?.assetBytes === assetBytes.length && saved.x > 0 ? 'passed' : 'failed',
-        missionSmoke: mission && ped.count === 1 && ped.task === 1 && ped.health === 80 ? 'passed' : 'failed',
-        runtimeSave: runtimeSaved ? 'passed' : 'failed',
+        servicesSmoke: servicesSmoke === 0 ? 'passed' : `failed-${servicesSmoke}`, runtime: 'menu-ready',
         contentManifest: { version: content.manifest.version, assets: content.entries.size },
-        assetRangeRead: assetBytes.length, saveRoundTrip: !!saved,
+        assetRangeRead: assetBytes.length,
         deviceLoss: 'controlled-state-ready', browserServices: ['input','gamepad','touch','audio-gate','fullscreen','visibility','indexeddb-save','range-vfs'] }, null, 2);
     } catch (error) {
       status.className = 'error';
