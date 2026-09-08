@@ -85,14 +85,54 @@ export class UserInstallMount {
   static async pickDirectory(){if(!globalThis.showDirectoryPicker)throw new Error('directory picker unavailable');const root=await showDirectoryPicker({mode:'read'}),files=[];const walk=async(dir,prefix='')=>{for await(const [name,entry] of dir.entries()){if(entry.kind==='file'){const f=await entry.getFile();Object.defineProperty(f,'webkitRelativePath',{value:`${prefix}${name}`});files.push(f);}else if(entry.kind==='directory')await walk(entry,`${prefix}${name}/`);}};await walk(root);return UserInstallMount.fromFiles(files);}
   entry(id){return this.manifest.entry(id);}
   async read(id,offset=0,size=null){return this.manifest.read(id,offset,size);}
+  // IMG v2 keeps its directory in the first 8 + count*32 bytes.  The browser
+  // only reads that bounded directory and then range-reads the selected DFF;
+  // a complete 900MB gta3.img never enters JS/WASM memory.
+  async imgEntries(id){
+    const file=this.entry(id), head=await this.read(id,0,8), hd=new DataView(head.buffer,head.byteOffset,head.byteLength);
+    if(new TextDecoder().decode(head.subarray(0,4))!=='VER2') throw new Error(`unsupported IMG archive: ${id}`);
+    const count=hd.getUint32(4,true); if(count>1000000) throw new Error('IMG directory too large');
+    const bytes=await this.read(id,8,count*32), d=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength), out=[];
+    for(let i=0;i<count;i++){
+      const p=i*32, block=d.getUint32(p,true), blocks=d.getUint32(p+4,true);
+      let name=''; for(let j=0;j<24&&bytes[p+8+j];j++) name+=String.fromCharCode(bytes[p+8+j]);
+      if(name) out.push({name,offset:block*2048,size:blocks*2048});
+    }
+    return out;
+  }
+  async readImgEntry(archiveId, entry, offset=0, size=null){
+    const n=typeof entry==='string'?(await this.imgEntries(archiveId)).find(x=>x.name.toLowerCase()===entry.toLowerCase()):entry;
+    if(!n) throw new Error(`IMG entry not found: ${entry}`); const length=size??(n.size-offset);
+    if(offset<0||length<0||offset+length>n.size) throw new Error('IMG entry range exceeds archive record');
+    return this.read(archiveId,n.offset+offset,length);
+  }
+  async findFirstDff(){
+    const archives=[...this.manifest.manifest.assets].filter(x=>x.path.toLowerCase().endsWith('.img'));
+    for(const archive of archives){
+      const entries=await this.imgEntries(archive.id);
+      for(const entry of entries.filter(x=>x.name.toLowerCase().endsWith('.dff')).slice(0,256)){
+        if(entry.size>64*1024*1024) continue;
+        const bytes=await this.readImgEntry(archive.id,entry);
+        try { const mesh=parseDffRenderMesh(bytes); return {archive:archive.path,entry:entry.name,bytes,mesh}; } catch (_) { /* try the next model */ }
+      }
+    }
+    const loose=[...this.manifest.manifest.assets].filter(x=>x.path.toLowerCase().endsWith('.dff'));
+    for(const entry of loose.slice(0,256)){if(entry.size>64*1024*1024)continue;const bytes=await this.read(entry.id);try{return {archive:null,entry:entry.path,bytes,mesh:parseDffRenderMesh(bytes)};}catch(_){}}
+    throw new Error('no browser-decodable DFF found in mounted install');
+  }
   async persistToOpfs(name='gtasa-install'){if(!navigator.storage?.getDirectory)throw new Error('OPFS unavailable');const root=await navigator.storage.getDirectory(),dir=await root.getDirectoryHandle(name,{create:true});for(const entry of this.manifest.manifest.assets){const file=this.vfs.files?.get(entry.path);if(!file)continue;const out=await dir.getFileHandle(entry.path.replaceAll('/','_'),{create:true}),w=await out.createWritable();await w.write(await file.arrayBuffer());await w.close();}return name;}
 }
 // Browser scene assembled from the same IDE/IPL placement contract used by the native streamer.
 export class WorldScene {
   constructor(){this.instances=[];this.loadedSectors=new Set();this.routeSector='0:0';}
+  async loadMountedAsset(mount){
+    const asset=await mount.findFirstDff();
+    this.asset=asset; this.assetInstances=[{model:asset.entry,x:0,y:0,z:0,sx:8,sy:8,sz:8,rz:0,asset:true}];
+    return asset;
+  }
   loadIde(text){this.definitions=new Map();let active=false;for(const line of String(text).split(/\r?\n/)){const f=line.split('#')[0].split(',').map(x=>x.trim());if(!f[0])continue;const s=f[0].toLowerCase();if(s==='objs'||s==='tobj'){active=true;continue}if(s==='end'){active=false;continue}if(active&&f.length>=3)this.definitions.set(f[1],{id:+f[0],model:f[1],texture:f[2],drawDistance:+f[3]||80});}return this.definitions.size;}
   loadIpl(text){this.instances=[];let active=false;for(const line of String(text).split(/\r?\n/)){const f=line.split('#')[0].split(',').map(x=>x.trim());if(!f[0])continue;const s=f[0].toLowerCase();if(s==='inst'){active=true;continue}if(s==='end'){active=false;continue}if(active&&f.length>=10){const n=f.slice(3,10).map(Number);if(n.every(Number.isFinite))this.instances.push({model:f[1],x:n[0],y:n[1],z:n[2],rz:n[5]});}}return this.instances.length;}
-  streamAround(x,y){const sx=Math.floor(x/300),sy=Math.floor(y/300),key=`${sx}:${sy}`;this.routeSector=key;if(this.loadedSectors.has(key))return;this.loadedSectors.add(key);const placed=this.instances.filter(i=>Math.floor(i.x/300)===sx&&Math.floor(i.y/300)===sy);this.visible=placed.length?placed:this.makeSector(sx,sy);}
+  streamAround(x,y){const sx=Math.floor(x/300),sy=Math.floor(y/300),key=`${sx}:${sy}`;this.routeSector=key;if(this.loadedSectors.has(key))return;this.loadedSectors.add(key);const placed=this.instances.filter(i=>Math.floor(i.x/300)===sx&&Math.floor(i.y/300)===sy);this.visible=placed.length?placed:(this.assetInstances||this.makeSector(sx,sy));}
   makeSector(sx,sy){const out=[],ox=sx*300,oy=sy*300;for(let ix=-4;ix<=4;ix++)for(let iy=-3;iy<=3;iy++){if(Math.abs(ix)<=1&&Math.abs(iy)<=1)continue;const road=Math.abs(ix)%3===0||Math.abs(iy)%3===0;out.push({model:road?'road':'building',x:ox+ix*34,y:oy+iy*34,z:road?-.06:4,sx:road?16:13,sy:road?6:13,sz:road?.08:8});}out.push({model:'landmark',x:ox+55,y:oy+36,z:12,sx:8,sy:8,sz:24});return out;}
   update(x,y){this.streamAround(x,y);return {sector:this.routeSector,loadedSectors:this.loadedSectors.size,instances:this.visible||[]};}
 }
@@ -103,7 +143,7 @@ export class GameRuntimeController {
   contextLost(reason='device-lost'){this.deviceLost=true;this.stop();this.draw?.({deviceLost:true,reason});}
   recoverContext(){this.deviceLost=false;this.start();}
   start(){if(this.module._sa_runtime_init()!==0)throw new Error('WASM runtime init failed');this.running=true;this.last=performance.now();requestAnimationFrame(t=>this.frame(t));}
-  frame(now){if(!this.running)return;const dt=Math.min((now-this.last)/1000,0.1);this.last=now;const s=this.input.pollGamepad();if(this.route.phase==='on-foot'&&s.enter){this.enterVehicle(411);this.route.phase='driving';this.route.interaction='vehicle-entered';}if(this.module._sa_runtime_tick_camera)this.module._sa_runtime_tick_camera(dt,s.steering,s.throttle,s.brake,s.cameraYaw,s.cameraPitch);else this.module._sa_runtime_tick(dt,s.steering,s.throttle,s.brake);this.route.elapsed+=dt;const x=this.module._sa_runtime_vehicle_x(),y=this.module._sa_runtime_vehicle_y();if(this.route.phase==='driving'&&this.route.mission&&Math.hypot(x-this.route.destination.x,y-this.route.destination.y)<6){this.route.interior=this.enterInterior(3);this.route.phase=this.route.interior?'interior':'failed';this.route.interaction='destination-reached';}if(this.route.phase==='interior'&&this.route.elapsed-this.route.interiorAt>=1){this.route.phase='complete';this.route.interaction='mission-complete';}if(this.route.phase==='interior'&&this.route.interiorAt===undefined)this.route.interiorAt=this.route.elapsed;this.draw?.({x,y,heading:this.module._sa_runtime_vehicle_heading(),speed:this.module._sa_runtime_vehicle_speed?.()||0,camera:this.module._sa_runtime_camera_x?{x:this.module._sa_runtime_camera_x(),y:this.module._sa_runtime_camera_y(),z:this.module._sa_runtime_camera_z(),lookX:this.module._sa_runtime_camera_look_x(),lookY:this.module._sa_runtime_camera_look_y(),lookZ:this.module._sa_runtime_camera_look_z()}:null,interior:this.module._sa_runtime_interior_active()===1,input:s,route:{...this.route}});requestAnimationFrame(t=>this.frame(t));}
+  frame(now){if(!this.running)return;const dt=Math.min((now-this.last)/1000,0.1);this.last=now;const s=this.input.pollGamepad();if(this.route.phase==='on-foot'&&s.enter){this.enterVehicle(411);this.route.phase='driving';this.route.interaction='vehicle-entered';}if(this.module._sa_runtime_tick_camera)this.module._sa_runtime_tick_camera(dt,s.steering,s.throttle,s.brake,s.cameraYaw,s.cameraPitch);else this.module._sa_runtime_tick(dt,s.steering,s.throttle,s.brake);this.route.elapsed+=dt;const x=this.module._sa_runtime_vehicle_x(),y=this.module._sa_runtime_vehicle_y();if(this.route.phase==='driving'&&this.route.mission&&Math.hypot(x-this.route.destination.x,y-this.route.destination.y)<6){this.route.interior=this.enterInterior(3);this.route.phase=this.route.interior?'interior':'failed';this.route.interaction='destination-reached';}if(this.route.phase==='interior'&&this.route.interiorAt===undefined)this.route.interiorAt=this.route.elapsed;if(this.route.phase==='interior'&&this.route.elapsed-this.route.interiorAt>=1){this.route.phase='complete';this.route.interaction='mission-complete';}this.draw?.({x,y,heading:this.module._sa_runtime_vehicle_heading(),speed:this.module._sa_runtime_vehicle_speed?.()||0,camera:this.module._sa_runtime_camera_x?{x:this.module._sa_runtime_camera_x(),y:this.module._sa_runtime_camera_y(),z:this.module._sa_runtime_camera_z(),lookX:this.module._sa_runtime_camera_look_x(),lookY:this.module._sa_runtime_camera_look_y(),lookZ:this.module._sa_runtime_camera_look_z()}:null,interior:this.module._sa_runtime_interior_active()===1,input:s,peds:Array.from({length:this.module._sa_runtime_ped_count?.()||0},(_,i)=>({x:i*1.5,y:0,health:this.module._sa_runtime_ped_health(i)})),route:{...this.route}});requestAnimationFrame(t=>this.frame(t));}
   stop(){this.running=false;}
   enterVehicle(model=411){return this.module._sa_runtime_enter_vehicle(model)===0;}
   enterInterior(id=0){return this.module._sa_runtime_enter_interior(id)===0;}
@@ -128,7 +168,7 @@ export class WebGL2Renderer {
     const compile=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;};
     this.program=gl.createProgram();gl.attachShader(this.program,compile(gl.VERTEX_SHADER,vs));gl.attachShader(this.program,compile(gl.FRAGMENT_SHADER,fs));gl.linkProgram(this.program);if(!gl.getProgramParameter(this.program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(this.program));
     this.vao=gl.createVertexArray(); this.mvp=gl.getUniformLocation(this.program,'uMvp');this.model=gl.getUniformLocation(this.program,'uModel');this.color=gl.getUniformLocation(this.program,'uColor');this.fogColor=gl.getUniformLocation(this.program,'uFogColor');this.fogNear=gl.getUniformLocation(this.program,'uFogNear');this.fogFar=gl.getUniformLocation(this.program,'uFogFar'); gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
-    this.mesh=null; this.material={color:[.12,.65,.18,1]}; this.primitives={cube:this._uploadMesh(makeCubeMesh()),ground:this._uploadMesh(makeGroundMesh()),car:this._uploadMesh(makeCarMesh())};
+    this.mesh=null; this.material={color:[.12,.65,.18,1]}; this.primitives={cube:this._uploadMesh(makeCubeMesh()),ground:this._uploadMesh(makeGroundMesh()),car:this._uploadMesh(makeCarMesh())}; this.primitives.ped=this.primitives.cube;
   }
   // Upload a renderer-neutral RenderWare mesh.  The parser deliberately lives
   // outside the GPU code so the same decoded data can be used by WebGPU later.
@@ -158,6 +198,7 @@ export class WebGL2Renderer {
     const draw=(mesh,x,y,z,sx,sy,sz,color,angle=0)=>{if(!mesh)return;const model=composeScale(x,y,z,sx,sy,sz,angle);gl.uniformMatrix4fv(this.mvp,false,mul(proj,mul(view,model)));gl.uniformMatrix4fv(this.model,false,model);gl.uniform4f(this.color,...color,1);gl.bindVertexArray(mesh.vao);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.type,0);};
     const px=s.x||0,py=s.y||0;draw(this.primitives.ground,px,py,-.18,900,900,.1,[.18,.29,.18]);
     for(const o of (s.scene?.instances||[])){const road=o.model==='road';const color=road?[.09,.1,.105]:o.model==='landmark'?[.68,.3,.12]:[.28,.34,.39];const mesh=road?this.primitives.cube:this.primitives.cube;draw(mesh,o.x,o.y,o.z,o.sx||12,o.sy||12,o.sz||8,color,o.rz||0);if(road){draw(this.primitives.cube,o.x,o.y,.02,(o.sx||12)*.82,(o.sy||12)*.06,.025,[.72,.62,.28],o.rz||0);}}
+    for(const p of (s.peds||[]))draw(this.primitives.ped,p.x,p.y,.7,.55,.55,1.6,p.health>0?[.86,.68,.2]:[.35,.1,.1]);
     draw(this.primitives.car,px,py,.85,2.0,4.0,1.15,s.interior?[.9,.48,.08]:[.06,.42,.68],s.heading*Math.PI/180);gl.bindVertexArray(null);}
 }
 // Minimal, legal RenderWare geometry reader for browser-mounted DFF bytes.

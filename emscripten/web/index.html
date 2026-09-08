@@ -54,7 +54,7 @@
     const audio = new BrowserAudioGate();
     const saves = new SaveManager();
     installLifecycle({audio});
-    document.querySelector('#import-install').onclick=async()=>{try{const mount=await UserInstallMount.pickDirectory();const sample=mount.manifest.entries.keys().next().value;status.dataset.install=`mounted:${mount.manifest.entries.size}`;status.textContent=`User install mounted (${mount.manifest.entries.size} assets); range reads remain file-backed`;if(sample)status.dataset.installProbe=(await mount.read(sample,0,Math.min(16,mount.entry(sample).size))).length;}catch(error){status.className='error';status.textContent=`Install import failed: ${error?.message||error}`;}};
+    let mountedInstall=null;
     document.querySelector('#launch').onclick = async () => { await audio.unlock(); await document.documentElement.requestFullscreen?.(); };
     document.querySelector('#save').onclick = async () => { await saves.put('probe',{ok:true,at:Date.now(),input:input.pollGamepad()}); status.dataset.save='idbfs-ready'; };
     try {
@@ -67,6 +67,7 @@
       const adapterSmoke = module._sa_adapter_smoke();
       const servicesSmoke = module._sa_services_smoke();
       const scene = new WorldScene();
+      document.querySelector('#import-install').onclick=async()=>{try{mountedInstall=await UserInstallMount.pickDirectory();const sample=mountedInstall.manifest.entries.keys().next().value;status.dataset.install=`mounted:${mountedInstall.manifest.entries.size}`;status.textContent=`User install mounted (${mountedInstall.manifest.entries.size} assets); locating RenderWare geometry…`;if(sample)status.dataset.installProbe=(await mountedInstall.read(sample,0,Math.min(16,mountedInstall.entry(sample).size))).length;const asset=await scene.loadMountedAsset(mountedInstall);renderer.setMesh(asset.mesh,{name:`installed:${asset.entry}`,color:[.72,.58,.24,1]});status.dataset.asset=`${asset.archive||'loose'}:${asset.entry}`;status.textContent=`Installed asset active: ${asset.entry} · ${asset.mesh.indices.length/3} triangles`; }catch(error){status.className='error';status.textContent=`Install import failed: ${error?.message||error}`;}};
       const runtime = new GameRuntimeController(module,input,state => { state.scene=scene.update(state.x,state.y); renderer.draw(state); status.dataset.world=`sector:${state.scene.sector} loaded:${state.scene.loadedSectors} instances:${state.scene.instances.length}`; });
       input.bindTouchControls({accelerate:document.querySelector('#touch-accelerate'),reverse:document.querySelector('#touch-brake'),left:document.querySelector('#touch-left'),right:document.querySelector('#touch-right')});
       installLifecycle({audio,canvas,runtime});
