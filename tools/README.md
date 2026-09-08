@@ -25,10 +25,19 @@ Walk the owned SA executable directly with the Binary-compatible backend:
 .\tools\walk-sa-binary.ps1
 ```
 
-This creates a fingerprinted function/import/section map and classifies native
-boundaries for renderer, audio, input, platform, streaming and networking. The
-map is implementation evidence; it never copies executable bytes or permits
-original-address calls in the WASM runtime.
+This creates a fingerprinted function/import/section map, bounded string evidence,
+and classifies native boundaries for renderer, audio, input, platform, streaming
+and networking. The map is implementation evidence; it never copies executable
+bytes or permits original-address calls in the WASM runtime. The default target
+is the installed `gta_sa.exe` (override with `-Executable` for a legal fixture).
+
+Run the three acceptance calls (native boot, services/VFS, and WASM assembly):
+
+```powershell
+.\tools\run-next-three.ps1
+```
+
+The result is written to `reports/next-three.json`; generated reports are ignored.
 
 On Windows, the companion verification script can use the downloaded Rizin
 backend while Compass's POSIX-only sandbox sources are unavailable:

@@ -18,6 +18,8 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | SA asset/save runtime | P1.4 | In progress | `runtime/sa_services.h`: VFS ranges, saves import/export |
 | Browser feature parity | P1.5 | In progress | `browser_services.js`: input/audio/lifecycle/IndexedDB/RangeVfs |
 | P1.6 acceptance route | P1.6 | Pending | begins after adapters and legal fixture pass |
+| Binary evidence walker | P1.1/P1.2 | Done | `tools/walk-sa-binary.ps1`; PE fingerprint, imports, sections, symbols and bounded subsystem string evidence |
+| Three-call validation | P1.3/P1.4/P1.6 | Done for runtime probe | `tools/run-next-three.ps1`; native boot/services and Emscripten WASM assembly all pass |
 
 The source inventory and native import evidence are now merged by
 `tools/annotate-subsystems.ps1`. This closes the evidence-mapping gap; it does
@@ -52,7 +54,8 @@ The owned executable is now a first-class behavioral reference through
 `tools/walk-sa-binary.ps1`. Its fingerprinted imports, sections and discovered
 functions feed the same subsystem adapter map; implementation proceeds by
 replacing classified boundaries in `runtime/`, never by linking or executing
-the original binary in WebAssembly.
+the original binary in WebAssembly. The walker is evidence only; it cannot
+recover missing engine source or produce a playable GTA binary by itself.
 
 The WASM boundary is now integrated through `GameRuntimeController`: browser
 input is sampled every animation frame and passed to runtime ticks, runtime

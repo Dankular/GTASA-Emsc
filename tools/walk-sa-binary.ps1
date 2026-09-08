@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$Executable = 'C:\Program Files (x86)\Rockstar Games\GTA San Andreas\gta_sa_compact1.0.exe',
+  [string]$Executable = 'C:\Program Files (x86)\Rockstar Games\GTA San Andreas\gta_sa.exe',
   [string]$RzBin = 'D:\Dev Proj\GTA Uno\GTASA\rizin-static\rizin-win-installer-vs2019_static-64\bin\rz-bin.exe',
   [string]$Rizin = 'D:\Dev Proj\GTA Uno\GTASA\rizin-static\rizin-win-installer-vs2019_static-64\bin\rizin.exe',
   [string]$Compass = (Join-Path $PSScriptRoot 'binary\build\src\cli\compass-cli.exe'),
@@ -13,10 +13,12 @@ $infoRaw=& $RzBin '-Ij' $Executable 2>$null|Out-String
 $importsRaw=& $RzBin '-ij' $Executable 2>$null|Out-String
 $symbolsRaw=& $RzBin '-sj' $Executable 2>$null|Out-String
 $sectionsRaw=& $RzBin '-Sj' $Executable 2>$null|Out-String
+$stringsRaw=& $RzBin '-zzj' $Executable 2>$null|Out-String
 $info=($infoRaw|ConvertFrom-Json).info
 $imports=($importsRaw|ConvertFrom-Json).imports
 $symbols=($symbolsRaw|ConvertFrom-Json).symbols
 $sections=($sectionsRaw|ConvertFrom-Json).sections
+$strings=@($stringsRaw|ConvertFrom-Json)
 $functionsRaw=& $Rizin '-2' '-q' '-c' 'aa; aflj; q' $Executable 2>$null|Out-String
 $functions=try{$functionsRaw|ConvertFrom-Json}catch{@()}
 $patterns=[ordered]@{
@@ -30,12 +32,24 @@ $patterns=[ordered]@{
 $libs=@($imports|ForEach-Object{$_.libname}|Sort-Object -Unique)
 $classified=[ordered]@{}
 foreach($name in $patterns.Keys){$classified[$name]=@($libs|Where-Object{$_ -match $patterns[$name]})}
+$stringPatterns=[ordered]@{
+  renderer='d3d|directdraw|renderware|raster|texture|shader'
+  audio='audio|stream|vorbis|eax|sound|music|bank'
+  input='input|pad|joystick|mouse|keyboard|controller'
+  world='vehicle|ped|interior|collision|model|anim|weapon|map|ipl'
+  persistence='save|load|replay|mission|script'
+}
+$stringEvidence=[ordered]@{}
+foreach($name in $stringPatterns.Keys){
+  $hits=@($strings|Where-Object{$_.string -match $stringPatterns[$name]})
+  $stringEvidence[$name]=[ordered]@{count=$hits.Count; samples=@($hits|Select-Object -First 20 -ExpandProperty string)}
+}
 $report=[ordered]@{
  generatedAt=(Get-Date).ToUniversalTime().ToString('o'); executable=(Resolve-Path $Executable).Path
  sha256=(Get-FileHash -LiteralPath $Executable -Algorithm SHA256).Hash
  analyzer=[ordered]@{backend='Rizin-compatible Binary walker'; compassPresent=(Test-Path -LiteralPath $Compass); compassPath=$Compass}
  info=$info; importedLibraries=$libs; importedFunctions=@($imports|Select-Object name,libname,plt); sections=@($sections|Select-Object name,vaddr,size,perm)
- functionCount=@($functions).Count; symbolCount=@($symbols).Count; functions=@($functions|Select-Object name,offset,size,nbbs,edges,calltype,signature); classifiedBoundaries=$classified
+ functionCount=@($functions).Count; symbolCount=@($symbols).Count; stringCount=$strings.Count; functions=@($functions|Select-Object name,offset,size,nbbs,edges,calltype,signature); classifiedBoundaries=$classified; stringEvidence=$stringEvidence
  implementationRule='Use this report to replace one boundary at a time in runtime/. Do not copy proprietary bytes or execute original addresses in WASM.'
 }
 $full=[IO.Path]::GetFullPath($Output);New-Item -ItemType Directory -Force -Path (Split-Path -Parent $full)|Out-Null;$report|ConvertTo-Json -Depth 10|Set-Content -LiteralPath $full -Encoding utf8
