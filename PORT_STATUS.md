@@ -24,13 +24,25 @@ python -m http.server 8080 --directory emscripten\web
 Open `http://localhost:8080/` and verify that the page reports the compiled
 module and the `__EMSCRIPTEN__` build flag.
 
-## Phase 1 blockers
+## SDK-first next stage
 
-Before the real SA game can be linked, the source must be detached from:
+The next implementation stage uses the pinned SDK reference and the compiled
+`SaSubsystemBridge`. Run the SDK inventory before adapter work:
 
-- original-executable `plugin::Call*` fallbacks;
-- absolute-address `StaticRef` globals and vtables;
-- `VirtualProtect`/JMP injection and the ASI entry point;
+```powershell
+.\tools\map-plugin-sdk.ps1
+```
+
+The browser target owns its state and platform services. The SDK supplies
+native class contracts and behavior references; it is not loaded as an ASI.
+
+## Remaining gaps
+
+The remaining browser gaps are adapter implementations, not an ASI detachment:
+
+- SDK-backed script dispatch and owned globals;
+- portable replacement for absolute-address state and vtables;
+- browser-owned startup and lifecycle;
 - hard-coded RenderWare/D3D9 calls;
 - Win32/DirectSound/DirectInput-only platform paths;
 - x86 calling-convention and pointer-size assumptions.
