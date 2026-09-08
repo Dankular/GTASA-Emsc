@@ -16,10 +16,10 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | SDK class/API inventory | P1.1 | Done | `tools/map-plugin-sdk.ps1`, pinned SDK commit |
 | Portable subsystem adapters | P1.2 | In progress | `runtime/sa_subsystem_bridge.h` + `runtime/sa_adapters.h`, all eleven tracks registered; owned gameplay state crosses WASM ABI |
 | SA asset/save runtime | P1.4 | In progress | `runtime/sa_services.h`: VFS ranges, saves import/export |
-| Browser feature parity | P1.5 | In progress | `browser_services.js`: input/audio/lifecycle/IndexedDB/RangeVfs plus canvas gameplay loop |
+| Browser feature parity | P1.5 | In progress | `browser_services.js`: input/audio/lifecycle/IndexedDB/RangeVfs plus canvas gameplay loop; `tools/browser-contract-smoke.mjs` validates the browser boundary |
 | P1.6 acceptance route | P1.6 | In progress | browser page now runs gameplay tick, RangeVfs fixture read and IndexedDB save round-trip; full engine route remains source-dependent |
 | Binary evidence walker | P1.1/P1.2 | Done | `tools/walk-sa-binary.ps1`; PE fingerprint, imports, sections, symbols and bounded subsystem string evidence |
-| Three-call validation | P1.3/P1.4/P1.6 | Done for runtime probe | `tools/run-next-three.ps1`; native boot/services and Emscripten WASM assembly all pass |
+| Three-call validation | P1.3/P1.4/P1.6 | Done for runtime probe | `tools/run-next-three.ps1`; native boot/services, IMG archive, WASM ABI and browser contract all pass |
 | Installed-content boundary | P1.4 | Implemented | `tools/index-sa-assets.ps1`; hashes local user-owned content without committing assets |
 | IMG archive reader | P1.4 | Implemented | `runtime/sa_img_archive.*`; reads VER2 directory entries and bounded file ranges; native smoke passes against installed `gta3.img` |
 

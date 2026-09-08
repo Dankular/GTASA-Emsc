@@ -39,6 +39,14 @@ Run the three acceptance calls (native boot, services/VFS, and WASM assembly):
 
 The result is written to `reports/next-three.json`; generated reports are ignored.
 
+The runner also performs the browser contract gate (required web files, WASM
+header, generated ABI names, browser service APIs, and native-execution
+boundary):
+
+```powershell
+node .\tools\browser-contract-smoke.mjs
+```
+
 Index a local, user-owned San Andreas installation without copying any assets:
 
 ```powershell

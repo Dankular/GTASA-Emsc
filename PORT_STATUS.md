@@ -58,3 +58,8 @@ The current browser artifact now includes a playable adapter shell: input is
 sampled every frame, vehicle position/heading and interior state cross the WASM
 ABI, and the canvas renders that state while driving. This proves the gameplay
 integration contract; it is not the proprietary commercial engine itself.
+
+The repeatable gate now includes `tools/browser-contract-smoke.mjs`. It checks
+the generated browser artifact, ABI exports, service API surface and confirms
+that the page does not execute `gta_sa.exe`. This is a CI-safe contract check;
+it does not replace a real browser session or the P1.6 commercial-engine route.
