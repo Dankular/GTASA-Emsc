@@ -1,0 +1,9 @@
+# Emscripten/CMake outputs
+/emscripten/build*/
+/emscripten/web/*.js
+/emscripten/web/*.wasm
+
+# Local tooling
+.cache/
+.vscode/
+

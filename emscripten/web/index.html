@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GTASA-Emsc Phase 1 probe</title>
+  <style>
+    body { margin: 2rem; background: #111827; color: #e5e7eb; font: 16px system-ui, sans-serif; }
+    main { max-width: 48rem; margin: auto; }
+    pre { padding: 1rem; background: #1f2937; border-radius: .5rem; }
+    .ok { color: #86efac; }
+    .error { color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>GTASA-Emsc Phase 1 probe</h1>
+    <p>This confirms the browser module contract. It is not yet the game.</p>
+    <pre id="status">Loading WebAssembly module…</pre>
+  </main>
+  <script type="module">
+    const status = document.querySelector('#status');
+    try {
+      const factory = (await import('./sa_port_probe.js')).default;
+      const module = await factory({ print: console.log, printErr: console.error });
+      const phase = module._sa_port_phase();
+      const emscripten = module._sa_port_is_emscripten();
+      status.className = 'ok';
+      status.textContent = JSON.stringify({ ok: true, phase, emscripten }, null, 2);
+    } catch (error) {
+      status.className = 'error';
+      status.textContent = `Probe failed: ${error?.stack || error}`;
+    }
+  </script>
+</body>
+</html>
+
