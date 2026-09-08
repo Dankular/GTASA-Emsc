@@ -20,6 +20,7 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | P1.6 acceptance route | P1.6 | In progress | browser page now runs gameplay tick, RangeVfs fixture read and IndexedDB save round-trip; full engine route remains source-dependent |
 | Binary evidence walker | P1.1/P1.2 | Done | `tools/walk-sa-binary.ps1`; PE fingerprint, imports, sections, symbols and bounded subsystem string evidence |
 | Three-call validation | P1.3/P1.4/P1.6 | Done for runtime probe | `tools/run-next-three.ps1`; native boot/services and Emscripten WASM assembly all pass |
+| Installed-content boundary | P1.4 | Implemented | `tools/index-sa-assets.ps1`; hashes local user-owned content without committing assets |
 
 The source inventory and native import evidence are now merged by
 `tools/annotate-subsystems.ps1`. This closes the evidence-mapping gap; it does

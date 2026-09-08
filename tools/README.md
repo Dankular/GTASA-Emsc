@@ -39,6 +39,15 @@ Run the three acceptance calls (native boot, services/VFS, and WASM assembly):
 
 The result is written to `reports/next-three.json`; generated reports are ignored.
 
+Index a local, user-owned San Andreas installation without copying any assets:
+
+```powershell
+.\tools\index-sa-assets.ps1
+```
+
+The manifest records relative paths, sizes and hashes only. It is the input
+contract for mounting real local content through `RangeVfs`.
+
 On Windows, the companion verification script can use the downloaded Rizin
 backend while Compass's POSIX-only sandbox sources are unavailable:
 
