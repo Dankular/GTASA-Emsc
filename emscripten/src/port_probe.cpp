@@ -74,6 +74,15 @@ int sa_runtime_tick(float dt, float steering, float throttle, float brake) {
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
 #endif
+int sa_runtime_tick_camera(float dt, float steering, float throttle, float brake, float cameraYaw, float cameraPitch) {
+    if (!g_runtime_ready && sa_runtime_init() != 0) return 1;
+    g_runtime.tick(dt, {steering, throttle, brake, false, cameraYaw, cameraPitch});
+    return 0;
+}
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
 int sa_runtime_enter_vehicle(int model) { return g_runtime.enterVehicle(static_cast<uint32_t>(model), {}) ? 0 : 1; }
 
 #ifdef __EMSCRIPTEN__
@@ -156,6 +165,36 @@ float sa_runtime_vehicle_y() { return g_runtime.vehicle().position.y; }
 EMSCRIPTEN_KEEPALIVE
 #endif
 float sa_runtime_vehicle_heading() { return g_runtime.vehicle().heading; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_vehicle_speed() { return g_runtime.vehicle().speed; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_camera_x() { return g_runtime.camera().position.x; }
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_camera_y() { return g_runtime.camera().position.y; }
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_camera_z() { return g_runtime.camera().position.z; }
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_camera_look_x() { return g_runtime.camera().lookAt.x; }
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_camera_look_y() { return g_runtime.camera().lookAt.y; }
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_camera_look_z() { return g_runtime.camera().lookAt.z; }
 
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
