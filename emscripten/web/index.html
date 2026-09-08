@@ -3,33 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GTASA-Emsc Phase 1 probe</title>
+  <title>GTA San Andreas — Browser Runtime</title>
   <style>
-    body { margin: 2rem; background: #111827; color: #e5e7eb; font: 16px system-ui, sans-serif; }
-    main { max-width: 48rem; margin: auto; }
+    body { margin: 0; background: #07111c; color: #e5e7eb; font: 16px system-ui, sans-serif; }
+    main { max-width: 72rem; margin: auto; padding: 1rem; }
     pre { padding: 1rem; background: #1f2937; border-radius: .5rem; }
     .ok { color: #86efac; }
     .error { color: #fca5a5; }
+    #touch-controls { display:flex; gap:.5rem; margin:.75rem 0; }
+    #touch-controls button { min-width:3rem; min-height:2.5rem; touch-action:none; }
+    #game { display:block; width:100%; height:min(72vh,640px); background:#091522; border:1px solid #284d63; }
+    #menu { position:fixed; inset:0; display:grid; place-items:center; background:#07111cee; z-index:2; }
+    #menu button { font-size:1.2rem; padding:.8rem 1.5rem; }
   </style>
 </head>
 <body>
   <main>
-    <h1>GTASA-Emsc Phase 1 probe</h1>
-    <p>This confirms the browser module contract. It is not yet the game.</p>
+    <h1>GTA San Andreas — Browser Runtime</h1>
     <button id="launch">Unlock audio / fullscreen</button>
     <button id="save">Test IndexedDB save</button>
     <button id="vehicle">Enter vehicle</button>
     <button id="mission">Run mission</button>
     <button id="save-runtime">Save runtime</button>
     <button id="load-runtime">Load runtime</button>
-    <canvas id="game" width="640" height="360" aria-label="GTA runtime canvas"></canvas>
+    <button id="radio">Radio</button>
+    <div id="touch-controls"><button id="touch-left">◀</button><button id="touch-accelerate">▲</button><button id="touch-brake">▼</button><button id="touch-right">▶</button></div>
+    <canvas id="game" width="960" height="540" aria-label="GTA San Andreas game canvas"></canvas>
     <pre id="status">Loading WebAssembly module…</pre>
   </main>
+  <section id="menu"><div><h2>San Andreas</h2><button id="new-game">New Game</button></div></section>
   <script type="module">
-    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, GameRuntimeController, installLifecycle } from './browser_services.js';
+    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, GameRuntimeController, WebGL2Renderer, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
     const canvas = document.querySelector('#game');
-    const ctx = canvas.getContext('2d');
+    const renderer = new WebGL2Renderer(canvas);
     const input = new BrowserInput();
     const audio = new BrowserAudioGate();
     const saves = new SaveManager();
@@ -47,6 +54,7 @@
       const servicesSmoke = module._sa_services_smoke();
       const draw = state => {
         ctx.fillStyle='#102030'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        if (state.deviceLost) { ctx.fillStyle='#fca5a5'; ctx.fillText(`Renderer paused: ${state.reason}`,24,40); return; }
         ctx.strokeStyle='#284d63'; ctx.strokeRect(20,20,600,320);
         const x=320+state.x*8, y=180-state.y*8;
         ctx.save(); ctx.translate(x,y); ctx.rotate(state.heading*Math.PI/180);
@@ -54,10 +62,13 @@
         ctx.fillStyle='#d1d5db'; ctx.fillText('WASD / arrows to drive · Enter vehicle',24,345);
       };
       const runtime = new GameRuntimeController(module,input,draw);
+      input.bindTouchControls({accelerate:document.querySelector('#touch-accelerate'),reverse:document.querySelector('#touch-brake'),left:document.querySelector('#touch-left'),right:document.querySelector('#touch-right')});
+      installLifecycle({audio,canvas,runtime});
       document.querySelector('#vehicle').onclick=()=>runtime.enterVehicle(411);
-      document.querySelector('#mission').onclick=()=>{ const ok=runtime.runMission(); status.dataset.mission=ok?'passed':'failed'; };
-      document.querySelector('#save-runtime').onclick=()=>{ status.dataset.runtimeSave=runtime.save('browser-runtime')?'passed':'failed'; };
-      document.querySelector('#load-runtime').onclick=()=>{ status.dataset.runtimeLoad=runtime.load('browser-runtime')?'passed':'failed'; };
+      document.querySelector('#mission').onclick=()=>{ const ok=runtime.runMission(); if(ok)audio.playMission('mission-start'); status.dataset.mission=ok?'passed':'failed'; };
+      document.querySelector('#radio').onclick=async()=>{await audio.unlock();audio.playRadio('Playback FM','radio-track-1');status.dataset.radio=audio.drain(performance.now()/1000).length?'scheduled':'failed';};
+      document.querySelector('#save-runtime').onclick=async()=>{ status.dataset.runtimeSave=await runtime.saveToBrowser(saves,'browser-runtime')?'passed':'failed'; };
+      document.querySelector('#load-runtime').onclick=async()=>{ status.dataset.runtimeLoad=await runtime.loadFromBrowser(saves,'browser-runtime')?'passed':'failed'; };
       runtime.start();
       const entered = runtime.enterVehicle(411);
       const mission = runtime.runMission();

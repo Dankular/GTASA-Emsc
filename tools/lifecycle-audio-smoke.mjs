@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { BrowserInput, BrowserAudioGate, GameRuntimeController } from '../emscripten/web/browser_services.js';
+const listeners={}; const target={addEventListener:(name,fn)=>{listeners[name]=fn;}};
+const input=new BrowserInput(target); input.touch(true,false); assert.equal(input.pollGamepad().throttle,1);
+let audioState='suspended'; globalThis.AudioContext=class { state=audioState; async resume(){audioState='running';this.state=audioState;} async suspend(){audioState='suspended';this.state=audioState;} };
+const audio=new BrowserAudioGate(); assert.equal(await audio.unlock(),true); audio.playMission('m1'); audio.playRadio('K','r1'); assert.equal(audio.drain(0).length,2);
+const values={x:3,y:4,h:5}; let slot='';
+const mod={_sa_runtime_init:()=>0,_sa_runtime_save:p=>(slot=p,0),_sa_runtime_load:p=>(slot=p,0),stringToNewUTF8:()=>7,_free:()=>{},_sa_runtime_vehicle_x:()=>values.x,_sa_runtime_vehicle_y:()=>values.y,_sa_runtime_vehicle_heading:()=>values.h};
+const runtime=new GameRuntimeController(mod,input); const store={put:async(k,v)=>{store.value=[k,v];},get:async()=>store.value?.[1]};
+assert.equal(await runtime.saveToBrowser(store,'s'),true); assert.equal(await runtime.loadFromBrowser(store,'s'),true);
+console.log(JSON.stringify({lifecycleAudioSmoke:'passed',touchThrottle:1,scheduledAudio:2,saveReload:true}));
