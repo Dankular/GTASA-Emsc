@@ -1,3 +1,6 @@
 [submodule "tools/binary"]
 	path = tools/binary
 	url = https://github.com/Dankular/Binary.git
+[submodule "tools/plugin-sdk"]
+	path = tools/plugin-sdk
+	url = https://github.com/DK22Pac/plugin-sdk.git

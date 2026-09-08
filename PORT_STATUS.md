@@ -1,9 +1,8 @@
 # GTA San Andreas Emscripten port
 
-This repository is the Phase 1 San Andreas port target. The source baseline is
-`gta-reversed`; the current `main` commit is an imported baseline only. The
-injected ASI/DLL build is **not** a browser build and must not be treated as
-Phase 1 complete.
+This repository is the Phase 1 San Andreas port target. The native reference
+layer is `DK22Pac/plugin-sdk` under `tools/plugin-sdk`; `gta-reversed` and its
+ASI are research history only and are not required by the browser build.
 
 ## First milestone: toolchain and browser contract
 
