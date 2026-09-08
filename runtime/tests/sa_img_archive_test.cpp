@@ -10,13 +10,19 @@ int main(int argc, char** argv) {
   if (result == 0) {
     browsergamert::ImgArchive archive;
     if (!archive.open(path)) result = 10;
-    auto it = std::find_if(archive.entries().begin(), archive.entries().end(), [](const browsergamert::ImgEntry& e) {
-      return e.name.size() >= 4 && e.name.substr(e.name.size()-4) == ".dff";
-    });
-    if (it != archive.entries().end()) std::printf("candidate=%s size=%llu\n", it->name.c_str(), (unsigned long long)it->size), std::fflush(stdout);
     std::vector<uint8_t> dff; std::vector<browsergamert::RwChunk> chunks;
-    if (it == archive.entries().end() || !archive.read(it->name, 0, it->size, dff) || !browsergamert::parseDffChunks(dff, chunks) || chunks.size() < 2) result = 11;
-    else std::printf("dff=%s chunks=%zu root=0x%X\n", it->name.c_str(), chunks.size(), chunks.front().type);
+    browsergamert::RwRenderMesh mesh; bool found = false; size_t candidates = 0;
+    for (const auto& entry : archive.entries()) {
+      if (entry.name.size() < 4 || entry.name.substr(entry.name.size()-4) != ".dff") continue;
+      ++candidates;
+      if (!archive.read(entry.name, 0, entry.size, dff) || !browsergamert::parseDffChunks(dff, chunks) || chunks.size() < 2) continue;
+      if (browsergamert::parseDffRenderMesh(dff, mesh) && !mesh.positions.empty() && !mesh.indices.empty()) {
+        std::printf("dff=%s chunks=%zu root=0x%X vertices=%zu triangles=%zu\n", entry.name.c_str(), chunks.size(), chunks.front().type, mesh.positions.size()/3, mesh.indices.size()/3);
+        found = true; break;
+      }
+    }
+    if (candidates == 0) result = 11;
+    else if (!found) result = 12;
   }
   std::printf("sa_img_archive_smoke=%d\n", result);
   return result;
