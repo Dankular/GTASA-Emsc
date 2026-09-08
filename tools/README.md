@@ -18,3 +18,10 @@ rendering, platform, audio, input, streaming, saves, vehicles and interiors.
 For function-level verification, build Compass separately and pass its
 `compass-cli` path with `-Compass`; analyze only a legal local executable or
 fixture and keep proprietary binary data out of this repository.
+
+On Windows, the companion verification script can use the downloaded Rizin
+backend while Compass's POSIX-only sandbox sources are unavailable:
+
+```powershell
+.\tools\verify-native-binary.ps1
+```
