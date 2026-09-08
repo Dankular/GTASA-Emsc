@@ -19,6 +19,17 @@ For function-level verification, build Compass separately and pass its
 `compass-cli` path with `-Compass`; analyze only a legal local executable or
 fixture and keep proprietary binary data out of this repository.
 
+Walk the owned SA executable directly with the Binary-compatible backend:
+
+```powershell
+.\tools\walk-sa-binary.ps1
+```
+
+This creates a fingerprinted function/import/section map and classifies native
+boundaries for renderer, audio, input, platform, streaming and networking. The
+map is implementation evidence; it never copies executable bytes or permits
+original-address calls in the WASM runtime.
+
 On Windows, the companion verification script can use the downloaded Rizin
 backend while Compass's POSIX-only sandbox sources are unavailable:
 

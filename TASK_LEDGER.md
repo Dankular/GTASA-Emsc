@@ -48,6 +48,12 @@ asset reads into the page. The remaining P1.5 work is gameplay integration and
 browser automation against the eventual `sa.wasm`, not another platform API
 design pass.
 
+The owned executable is now a first-class behavioral reference through
+`tools/walk-sa-binary.ps1`. Its fingerprinted imports, sections and discovered
+functions feed the same subsystem adapter map; implementation proceeds by
+replacing classified boundaries in `runtime/`, never by linking or executing
+the original binary in WebAssembly.
+
 The WASM boundary is now integrated through `GameRuntimeController`: browser
 input is sampled every animation frame and passed to runtime ticks, runtime
 initialization is explicit, and vehicle/interior entry calls cross the same
