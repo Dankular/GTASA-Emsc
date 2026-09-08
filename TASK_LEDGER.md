@@ -15,8 +15,8 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | Priority stream scheduler | P1.4/P2.8 | Scaffolded | stable critical-first queue |
 | SDK class/API inventory | P1.1 | Done | `tools/map-plugin-sdk.ps1`, pinned SDK commit |
 | Portable subsystem adapters | P1.2 | In progress | `runtime/sa_subsystem_bridge.h` + `runtime/sa_adapters.h`, all eleven tracks registered |
-| SA asset/save runtime | P1.4 | Next | SDK contracts plus user-owned fixture/VFS adapters |
-| Browser feature parity | P1.5 | Next | input/audio/touch/save/stream tests |
+| SA asset/save runtime | P1.4 | In progress | `runtime/sa_services.h`: VFS ranges, saves import/export |
+| Browser feature parity | P1.5 | In progress | logical input + audio unlock/queue smoke route |
 | P1.6 acceptance route | P1.6 | Pending | begins after adapters and legal fixture pass |
 
 The source inventory and native import evidence are now merged by
@@ -35,3 +35,9 @@ The SDK adapter baseline now has a deterministic smoke route covering script
 dispatch, vehicle movement, interior entry/exit, save and reload. Native and
 WASM builds both compile this route; it is a contract test, not yet the full
 commercial game's gameplay route.
+
+The four service tracks are now implemented together: `AssetVfs` (normalized
+random-access reads), `LogicalInput` (keyboard/gamepad/touch state),
+`BrowserAudio` (gesture unlock and queued playback), and `PersistentSaves`
+(slot read/write plus import/export serialization). `sa_services_test` passes
+alongside the WASM build.

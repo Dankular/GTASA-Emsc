@@ -2,6 +2,7 @@
 #include "browser_game_rt.h"
 #include "sa_subsystem_bridge.h"
 #include "sa_adapters.h"
+#include "sa_services.h"
 
 #ifdef __EMSCRIPTEN__
 #    include <emscripten/emscripten.h>
@@ -45,6 +46,11 @@ int sa_subsystems_boundary_ready() {
 EMSCRIPTEN_KEEPALIVE
 #endif
 int sa_adapter_smoke() { return browsergamert::runSaAdapterSmoke(); }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_services_smoke() { return browsergamert::runServiceSmoke(); }
 
 }
 

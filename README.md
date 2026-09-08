@@ -17,6 +17,7 @@ Start here:
 - [`BINARY_MAPPING.md`](BINARY_MAPPING.md) — reverse-engineering evidence contract
 - [`TASK_LEDGER.md`](TASK_LEDGER.md) — implementation gaps and acceptance state
 - `runtime/tests/sa_adapter_test.cpp` — native SDK-adapter smoke route
+- `runtime/tests/sa_services_test.cpp` — VFS/input/audio/save smoke route
 
 No proprietary game assets are included.
 
@@ -27,4 +28,6 @@ emscripten\scripts\build-web.ps1
 cmake -S emscripten -B emscripten\build-native -G "Visual Studio 17 2022" -A x64
 cmake --build emscripten\build-native --config Release --target sa_adapter_test
 emscripten\build-native\Release\sa_adapter_test.exe
+cmake --build emscripten\build-native --config Release --target sa_services_test
+emscripten\build-native\Release\sa_services_test.exe
 ```

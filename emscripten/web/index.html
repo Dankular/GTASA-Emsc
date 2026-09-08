@@ -28,6 +28,7 @@
       const webgpu = !!navigator.gpu;
       const boundaries = module._sa_subsystems_boundary_ready();
       const adapterSmoke = module._sa_adapter_smoke();
+      const servicesSmoke = module._sa_services_smoke();
       let adapter = null;
       let features = [];
       if (webgpu) {
@@ -40,6 +41,7 @@
         webgpu, adapter: adapter?.info?.vendor || adapter?.name || null,
         optionalFeatures: features, subsystemBoundaries: boundaries === 1 ? 'all-ready' : 'incomplete',
         sdkAdapterSmoke: adapterSmoke === 0 ? 'passed' : `failed-${adapterSmoke}`,
+        servicesSmoke: servicesSmoke === 0 ? 'passed' : `failed-${servicesSmoke}`,
         deviceLoss: 'controlled-state-ready' }, null, 2);
     } catch (error) {
       status.className = 'error';
