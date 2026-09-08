@@ -94,7 +94,53 @@ int sa_runtime_dispatch_script(int opcode) { return g_runtime.dispatchScript(sta
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
 #endif
+int sa_runtime_run_mission() {
+    // Compact, deterministic mission used by the browser acceptance route:
+    // spawn the player vehicle, spawn a pedestrian, assign its walk task,
+    // lower health, then enter interior 3.
+    const std::vector<uint16_t> mission{1, 411, 4, 7, 5, 1, 6, 80, 3, 3, 0};
+    return g_runtime.runScript(mission) ? 0 : 1;
+}
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_spawn_ped(int model) { return g_runtime.spawnPed(static_cast<uint32_t>(model), {}) ? 0 : 1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_set_ped_task(int index, int task) { return g_runtime.setPedTask(static_cast<uint32_t>(index), static_cast<uint16_t>(task)) ? 0 : 1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_set_ped_health(int index, float health) { return g_runtime.setPedHealth(static_cast<uint32_t>(index), health) ? 0 : 1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
 int sa_runtime_ped_count() { return static_cast<int>(g_runtime.peds().size()); }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_ped_task(int index) { return index >= 0 && static_cast<size_t>(index) < g_runtime.peds().size() ? g_runtime.peds()[static_cast<size_t>(index)].task : -1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_ped_health(int index) { return index >= 0 && static_cast<size_t>(index) < g_runtime.peds().size() ? g_runtime.peds()[static_cast<size_t>(index)].health : -1.f; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_save(const char* slot) { return slot && g_runtime.save(slot) ? 0 : 1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_load(const char* slot) { return slot && g_runtime.load(slot) ? 0 : 1; }
 
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE

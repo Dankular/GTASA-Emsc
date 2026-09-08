@@ -35,6 +35,15 @@ export class RangeVfs {
     return bytes;
   }
 }
+// Renderer-neutral bridge for TXD metadata emitted by the native/WASM asset
+// parser. The bridge does not guess compressed pixel layouts: those are handed
+// to a decoder before GPU upload. This keeps WebGPU policy out of the archive parser.
+export function createTextureUploadDescriptor(meta) {
+  if (!meta || !Number.isInteger(meta.width) || !Number.isInteger(meta.height) || meta.width<=0 || meta.height<=0) throw new Error('invalid TXD metadata');
+  const mipLevels=Number.isInteger(meta.mipLevels)&&meta.mipLevels>0?meta.mipLevels:1;
+  const compressed=!!meta.compressed;
+  return {width:meta.width,height:meta.height,mipLevels,format:compressed?'renderware-compressed':(meta.format||'rgba8unorm'),hasAlpha:!!meta.hasAlpha,bytesPerRow:compressed?0:(meta.bytesPerRow||meta.width*4),usage:['TEXTURE_BINDING','COPY_DST']};
+}
 export class ContentManifest {
   constructor(manifest,baseUrl='.',vfs=new RangeVfs()){this.manifest=manifest;this.baseUrl=baseUrl;this.vfs=vfs;this.entries=new Map();
     if(!manifest||manifest.version!==1||!Array.isArray(manifest.assets))throw new Error('unsupported content manifest');
@@ -58,4 +67,8 @@ export class GameRuntimeController {
   stop(){this.running=false;}
   enterVehicle(model=411){return this.module._sa_runtime_enter_vehicle(model)===0;}
   enterInterior(id=0){return this.module._sa_runtime_enter_interior(id)===0;}
+  runMission(){return this.module._sa_runtime_run_mission()===0;}
+  save(slot='browser-slot'){const ptr=this.module.stringToNewUTF8(slot);try{return this.module._sa_runtime_save(ptr)===0;}finally{this.module._free(ptr);}}
+  load(slot='browser-slot'){const ptr=this.module.stringToNewUTF8(slot);try{return this.module._sa_runtime_load(ptr)===0;}finally{this.module._free(ptr);}}
+  pedState(index=0){return {count:this.module._sa_runtime_ped_count(),task:this.module._sa_runtime_ped_task(index),health:this.module._sa_runtime_ped_health(index)};}
 }

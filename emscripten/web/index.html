@@ -19,6 +19,9 @@
     <button id="launch">Unlock audio / fullscreen</button>
     <button id="save">Test IndexedDB save</button>
     <button id="vehicle">Enter vehicle</button>
+    <button id="mission">Run mission</button>
+    <button id="save-runtime">Save runtime</button>
+    <button id="load-runtime">Load runtime</button>
     <canvas id="game" width="640" height="360" aria-label="GTA runtime canvas"></canvas>
     <pre id="status">Loading WebAssembly module…</pre>
   </main>
@@ -52,8 +55,14 @@
       };
       const runtime = new GameRuntimeController(module,input,draw);
       document.querySelector('#vehicle').onclick=()=>runtime.enterVehicle(411);
+      document.querySelector('#mission').onclick=()=>{ const ok=runtime.runMission(); status.dataset.mission=ok?'passed':'failed'; };
+      document.querySelector('#save-runtime').onclick=()=>{ status.dataset.runtimeSave=runtime.save('browser-runtime')?'passed':'failed'; };
+      document.querySelector('#load-runtime').onclick=()=>{ status.dataset.runtimeLoad=runtime.load('browser-runtime')?'passed':'failed'; };
       runtime.start();
       const entered = runtime.enterVehicle(411);
+      const mission = runtime.runMission();
+      const ped = runtime.pedState(0);
+      const runtimeSaved = runtime.save('acceptance-runtime');
       module._sa_runtime_tick(1, 0, 1, 0);
       const content = await ContentManifest.load('./content-manifest.json');
       const assetBytes = await content.readVerified('phase1-asset-probe');
@@ -72,7 +81,9 @@
         optionalFeatures: features, subsystemBoundaries: boundaries === 1 ? 'all-ready' : 'incomplete',
         sdkAdapterSmoke: adapterSmoke === 0 ? 'passed' : `failed-${adapterSmoke}`,
         servicesSmoke: servicesSmoke === 0 ? 'passed' : `failed-${servicesSmoke}`, runtime: 'started',
-        gameplaySmoke: entered && saved?.assetBytes === assetBytes.length && saved.x > 0 ? 'passed' : 'failed',
+        gameplaySmoke: entered && mission && ped.count === 1 && ped.task === 1 && ped.health === 80 && runtimeSaved && saved?.assetBytes === assetBytes.length && saved.x > 0 ? 'passed' : 'failed',
+        missionSmoke: mission && ped.count === 1 && ped.task === 1 && ped.health === 80 ? 'passed' : 'failed',
+        runtimeSave: runtimeSaved ? 'passed' : 'failed',
         contentManifest: { version: content.manifest.version, assets: content.entries.size },
         assetRangeRead: assetBytes.length, saveRoundTrip: !!saved,
         deviceLoss: 'controlled-state-ready', browserServices: ['input','gamepad','touch','audio-gate','fullscreen','visibility','indexeddb-save','range-vfs'] }, null, 2);
