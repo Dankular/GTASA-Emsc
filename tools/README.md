@@ -67,6 +67,18 @@ boundary):
 node .\tools\browser-contract-smoke.mjs
 ```
 
+Serve the browser artifact with the same cross-origin isolation, MIME, cache,
+and byte-range behavior expected by the runtime:
+
+```powershell
+node .\tools\serve-browser.mjs 8080
+node .\tools\browser-protocol-smoke.mjs
+```
+
+The protocol gate validates menu/new-game markup, WASM MIME, `206` range
+chunks, invalid-range `416`, cache policy, COOP/COEP isolation, and visible
+`404` failures. It is safe to run in CI without a proprietary game install.
+
 Index a local, user-owned San Andreas installation without copying any assets:
 
 ```powershell
