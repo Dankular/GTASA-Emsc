@@ -35,12 +35,14 @@
   </main>
   <section id="menu"><div><h2>San Andreas</h2><button id="new-game">New Game</button></div></section>
   <script type="module">
-    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, UserInstallMount, GameRuntimeController, WebGL2Renderer, installLifecycle } from './browser_services.js';
+    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, UserInstallMount, GameRuntimeController, WebGL2Renderer, createRenderWareFixture, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
     const canvas = document.querySelector('#game');
     let renderer;
     try {
       renderer = new WebGL2Renderer(canvas);
+      const fixtureMesh = renderer.loadDff(createRenderWareFixture(), {name:'legal-rw-fixture', color:[0.12,0.65,0.18,1]});
+      status.dataset.mesh = `dff:${fixtureMesh.count / 3} triangles`;
     } catch (error) {
       // Keep the route usable when WebGL2 shader/context creation fails.
       const ctx = canvas.getContext('2d');
