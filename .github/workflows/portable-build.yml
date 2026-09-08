@@ -1,0 +1,15 @@
+name: portable-build
+on: [push, pull_request]
+jobs:
+  linux-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S emscripten -B build-linux -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release
+      - name: Build portable runtime
+        run: cmake --build build-linux --target sa_platform_test sa_adapter_test sa_services_test sa_img_archive_test sa_txd_test
+      - name: Run platform test
+        run: ./build-linux/sa_platform_test
+      - name: Run service tests
+        run: ./build-linux/sa_adapter_test && ./build-linux/sa_services_test

@@ -13,6 +13,7 @@ target_sources(sa_port_probe PRIVATE ../runtime/src/sa_world_stream.cpp)
 target_sources(sa_port_probe PRIVATE ../runtime/src/sa_img_archive.cpp)
 target_sources(sa_port_probe PRIVATE ../runtime/src/sa_rw_dff.cpp)
 target_sources(sa_port_probe PRIVATE ../runtime/src/sa_rw_txd.cpp)
+target_sources(sa_port_probe PRIVATE ../runtime/src/sa_platform.cpp)
 target_include_directories(sa_port_probe PRIVATE ../runtime/include)
 target_compile_definitions(sa_port_probe PRIVATE BROWSER_GAME_RT_PROBE=1)
 
@@ -28,6 +29,12 @@ if(NOT EMSCRIPTEN)
     target_include_directories(sa_txd_test PRIVATE ../runtime/include)
     add_executable(sa_world_stream_test ../runtime/tests/sa_world_stream_test.cpp ../runtime/src/sa_world_stream.cpp ../runtime/src/sa_img_archive.cpp)
     target_include_directories(sa_world_stream_test PRIVATE ../runtime/include)
+    add_executable(sa_platform_test ../runtime/tests/sa_platform_test.cpp ../runtime/src/sa_platform.cpp)
+    target_include_directories(sa_platform_test PRIVATE ../runtime/include)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(sa_port_probe PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 if(EMSCRIPTEN)
@@ -42,7 +49,7 @@ if(EMSCRIPTEN)
         "-sUSE_WEBGL2=1"
         "-sFORCE_FILESYSTEM=1"
         "-sEXPORTED_RUNTIME_METHODS=['FS','stringToNewUTF8']"
-        "-sEXPORTED_FUNCTIONS=['_main','_free','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier','_sa_subsystems_boundary_ready','_sa_adapter_smoke','_sa_services_smoke','_sa_runtime_init','_sa_runtime_tick','_sa_runtime_enter_vehicle','_sa_runtime_enter_interior','_sa_runtime_script_smoke','_sa_runtime_dispatch_script','_sa_runtime_run_mission','_sa_runtime_spawn_ped','_sa_runtime_set_ped_task','_sa_runtime_set_ped_health','_sa_runtime_ped_count','_sa_runtime_ped_task','_sa_runtime_ped_health','_sa_runtime_save','_sa_runtime_load','_sa_runtime_vehicle_x','_sa_runtime_vehicle_y','_sa_runtime_vehicle_heading','_sa_runtime_interior_active']"
+        "-sEXPORTED_FUNCTIONS=['_main','_free','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier','_sa_subsystems_boundary_ready','_sa_adapter_smoke','_sa_services_smoke','_sa_runtime_init','_sa_runtime_tick','_sa_runtime_tick_camera','_sa_runtime_enter_vehicle','_sa_runtime_enter_interior','_sa_runtime_script_smoke','_sa_runtime_dispatch_script','_sa_runtime_run_mission','_sa_runtime_spawn_ped','_sa_runtime_set_ped_task','_sa_runtime_set_ped_health','_sa_runtime_ped_count','_sa_runtime_ped_task','_sa_runtime_ped_health','_sa_runtime_save','_sa_runtime_load','_sa_runtime_vehicle_x','_sa_runtime_vehicle_y','_sa_runtime_vehicle_heading','_sa_runtime_vehicle_speed','_sa_runtime_camera_x','_sa_runtime_camera_y','_sa_runtime_camera_z','_sa_runtime_camera_look_x','_sa_runtime_camera_look_y','_sa_runtime_camera_look_z','_sa_runtime_interior_active']"
     )
 else()
     message(STATUS "Configuring the native probe; use emcmake for the browser artifact")
