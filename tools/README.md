@@ -39,6 +39,26 @@ Run the three acceptance calls (native boot, services/VFS, and WASM assembly):
 
 The result is written to `reports/next-three.json`; generated reports are ignored.
 
+Capture the P1.0 baseline without copying game bytes into the repository:
+
+```powershell
+.\tools\capture-native-baseline.ps1
+```
+
+The report contains SHA-256 evidence for the compact executable, startup
+executable, and supported installed asset files. It also records ordered boot
+checkpoints, timeout/exit status, and separate stdout/stderr logs. The content
+digest is based only on sorted relative paths, sizes, and hashes, so rerunning
+against an unchanged install reproduces the same identity. `-SkipStartup` is
+available when only evidence hashing is required; use an explicit `-Output` in
+CI to retain the capture artifact.
+
+Run the fixture regression for the capture tool itself:
+
+```powershell
+.\tools\test-baseline-evidence.ps1
+```
+
 The runner also performs the browser contract gate (required web files, WASM
 header, generated ABI names, browser service APIs, and native-execution
 boundary):
