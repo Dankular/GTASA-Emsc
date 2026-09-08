@@ -37,6 +37,10 @@ Invoke-Step 'wasmAssembly' {
   if (!(Test-Path $wasm) -or !(Test-Path $js)) { throw 'WASM assembly outputs are missing' }
   $magic = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($wasm)[0..3])
   if ($magic -ne "`0asm") { throw "Invalid WASM magic: $magic" }
+  $jsText = Get-Content -LiteralPath $js -Raw
+  foreach ($export in @('_sa_runtime_tick','_sa_runtime_vehicle_x','_sa_runtime_interior_active')) {
+    if ($jsText -notmatch [regex]::Escape($export)) { throw "Missing runtime export: $export" }
+  }
 }
 
 $full = [IO.Path]::GetFullPath($Report)

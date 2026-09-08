@@ -14,9 +14,9 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | Render graph validation | P2.4 | Scaffolded | duplicate and read/write hazard checks |
 | Priority stream scheduler | P1.4/P2.8 | Scaffolded | stable critical-first queue |
 | SDK class/API inventory | P1.1 | Done | `tools/map-plugin-sdk.ps1`, pinned SDK commit |
-| Portable subsystem adapters | P1.2 | In progress | `runtime/sa_subsystem_bridge.h` + `runtime/sa_adapters.h`, all eleven tracks registered |
+| Portable subsystem adapters | P1.2 | In progress | `runtime/sa_subsystem_bridge.h` + `runtime/sa_adapters.h`, all eleven tracks registered; owned gameplay state crosses WASM ABI |
 | SA asset/save runtime | P1.4 | In progress | `runtime/sa_services.h`: VFS ranges, saves import/export |
-| Browser feature parity | P1.5 | In progress | `browser_services.js`: input/audio/lifecycle/IndexedDB/RangeVfs |
+| Browser feature parity | P1.5 | In progress | `browser_services.js`: input/audio/lifecycle/IndexedDB/RangeVfs plus canvas gameplay loop |
 | P1.6 acceptance route | P1.6 | Pending | begins after adapters and legal fixture pass |
 | Binary evidence walker | P1.1/P1.2 | Done | `tools/walk-sa-binary.ps1`; PE fingerprint, imports, sections, symbols and bounded subsystem string evidence |
 | Three-call validation | P1.3/P1.4/P1.6 | Done for runtime probe | `tools/run-next-three.ps1`; native boot/services and Emscripten WASM assembly all pass |

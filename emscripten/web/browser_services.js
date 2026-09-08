@@ -24,9 +24,9 @@ export class RangeVfs {
 }
 export function installLifecycle({audio}={}){document.addEventListener('visibilitychange',()=>document.hidden?audio?.pause():audio?.resume());window.addEventListener('resize',()=>window.dispatchEvent(new CustomEvent('browser-game-resize',{detail:{width:innerWidth,height:innerHeight}})));}
 export class GameRuntimeController {
-  constructor(module,input){this.module=module;this.input=input;this.running=false;this.last=0;}
+  constructor(module,input,draw=null){this.module=module;this.input=input;this.draw=draw;this.running=false;this.last=0;}
   start(){if(this.module._sa_runtime_init()!==0)throw new Error('WASM runtime init failed');this.running=true;this.last=performance.now();requestAnimationFrame(t=>this.frame(t));}
-  frame(now){if(!this.running)return;const dt=Math.min((now-this.last)/1000,0.1);this.last=now;const s=this.input.pollGamepad();this.module._sa_runtime_tick(dt,s.steering,s.throttle,s.brake);requestAnimationFrame(t=>this.frame(t));}
+  frame(now){if(!this.running)return;const dt=Math.min((now-this.last)/1000,0.1);this.last=now;const s=this.input.pollGamepad();this.module._sa_runtime_tick(dt,s.steering,s.throttle,s.brake);this.draw?.({x:this.module._sa_runtime_vehicle_x(),y:this.module._sa_runtime_vehicle_y(),heading:this.module._sa_runtime_vehicle_heading(),interior:this.module._sa_runtime_interior_active()===1,input:s});requestAnimationFrame(t=>this.frame(t));}
   stop(){this.running=false;}
   enterVehicle(model=411){return this.module._sa_runtime_enter_vehicle(model)===0;}
   enterInterior(id=0){return this.module._sa_runtime_enter_interior(id)===0;}

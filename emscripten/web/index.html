@@ -18,11 +18,15 @@
     <p>This confirms the browser module contract. It is not yet the game.</p>
     <button id="launch">Unlock audio / fullscreen</button>
     <button id="save">Test IndexedDB save</button>
+    <button id="vehicle">Enter vehicle</button>
+    <canvas id="game" width="640" height="360" aria-label="GTA runtime canvas"></canvas>
     <pre id="status">Loading WebAssembly module…</pre>
   </main>
   <script type="module">
     import { BrowserInput, BrowserAudioGate, SaveManager, GameRuntimeController, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
+    const canvas = document.querySelector('#game');
+    const ctx = canvas.getContext('2d');
     const input = new BrowserInput();
     const audio = new BrowserAudioGate();
     const saves = new SaveManager();
@@ -38,7 +42,16 @@
       const boundaries = module._sa_subsystems_boundary_ready();
       const adapterSmoke = module._sa_adapter_smoke();
       const servicesSmoke = module._sa_services_smoke();
-      const runtime = new GameRuntimeController(module,input);
+      const draw = state => {
+        ctx.fillStyle='#102030'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.strokeStyle='#284d63'; ctx.strokeRect(20,20,600,320);
+        const x=320+state.x*8, y=180-state.y*8;
+        ctx.save(); ctx.translate(x,y); ctx.rotate(state.heading*Math.PI/180);
+        ctx.fillStyle=state.interior?'#f59e0b':'#22c55e'; ctx.fillRect(-12,-7,24,14); ctx.restore();
+        ctx.fillStyle='#d1d5db'; ctx.fillText('WASD / arrows to drive · Enter vehicle',24,345);
+      };
+      const runtime = new GameRuntimeController(module,input,draw);
+      document.querySelector('#vehicle').onclick=()=>runtime.enterVehicle(411);
       runtime.start();
       let adapter = null;
       let features = [];

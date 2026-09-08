@@ -81,6 +81,26 @@ EMSCRIPTEN_KEEPALIVE
 #endif
 int sa_runtime_enter_interior(int id) { return g_runtime.enterInterior(id) ? 0 : 1; }
 
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_vehicle_x() { return g_runtime.vehicle().position.x; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_vehicle_y() { return g_runtime.vehicle().position.y; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+float sa_runtime_vehicle_heading() { return g_runtime.vehicle().heading; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_interior_active() { return g_runtime.interior().active ? 1 : 0; }
+
 }
 
 int main() {

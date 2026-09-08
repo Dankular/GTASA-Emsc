@@ -31,7 +31,7 @@ if(EMSCRIPTEN)
         "-sUSE_WEBGL2=1"
         "-sFORCE_FILESYSTEM=1"
         "-sEXPORTED_RUNTIME_METHODS=['FS']"
-        "-sEXPORTED_FUNCTIONS=['_main','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier','_sa_subsystems_boundary_ready','_sa_adapter_smoke','_sa_services_smoke','_sa_runtime_init','_sa_runtime_tick','_sa_runtime_enter_vehicle','_sa_runtime_enter_interior']"
+        "-sEXPORTED_FUNCTIONS=['_main','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier','_sa_subsystems_boundary_ready','_sa_adapter_smoke','_sa_services_smoke','_sa_runtime_init','_sa_runtime_tick','_sa_runtime_enter_vehicle','_sa_runtime_enter_interior','_sa_runtime_vehicle_x','_sa_runtime_vehicle_y','_sa_runtime_vehicle_heading','_sa_runtime_interior_active']"
     )
 else()
     message(STATUS "Configuring the native probe; use emcmake for the browser artifact")

@@ -51,3 +51,8 @@ The acceptance gate is defined in
 `PLAY_III_WEB_STACK_CODEX.md`, section 68 (`P1.6`). Phase 2 does not begin
 until that gate has a tagged `sa.wasm` build with browser input, audio, saves,
 asset loading and a representative gameplay smoke route.
+
+The current browser artifact now includes a playable adapter shell: input is
+sampled every frame, vehicle position/heading and interior state cross the WASM
+ABI, and the canvas renders that state while driving. This proves the gameplay
+integration contract; it is not the proprietary commercial engine itself.
