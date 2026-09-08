@@ -4,9 +4,8 @@
 #include <vector>
 
 namespace browsergamert {
-// Renderer-neutral description of one RenderWare texture.  Pixel decoding is
-// deliberately a later stage; this contract is enough for a WebGPU texture
-// allocator to choose dimensions, mip policy, and an upload format.
+// Renderer-neutral description of one RenderWare texture. Pixel data remains
+// owned by the asset mount; payloadOffset/payloadSize identify the first mip.
 struct RwTextureMetadata {
   std::string name;
   std::string mask;
@@ -24,7 +23,17 @@ struct RwTextureUploadPlan {
   std::string format; // WebGPU format or a decoder input format.
 };
 
+struct RwTexturePixels {
+  uint32_t width = 0, height = 0;
+  // Always tightly packed RGBA8, top-left origin, first mip level.
+  std::vector<uint8_t> rgba;
+};
+
 bool parseTxdMetadata(const std::vector<uint8_t>& bytes, std::vector<RwTextureMetadata>& out);
 RwTextureUploadPlan makeTextureUploadPlan(const RwTextureMetadata& texture);
+bool decodeTxdTexturePixels(const std::vector<uint8_t>& bytes,
+                            const RwTextureMetadata& texture,
+                            RwTexturePixels& out);
 int runTxdMetadataSmoke(const std::string& imgPath);
+int runTxdPixelSmoke(const std::string& imgPath);
 }
