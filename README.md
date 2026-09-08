@@ -16,6 +16,7 @@ Start here:
 - [`SDK_PORT_PATH.md`](SDK_PORT_PATH.md) — SDK-first migration contract
 - [`BINARY_MAPPING.md`](BINARY_MAPPING.md) — reverse-engineering evidence contract
 - [`TASK_LEDGER.md`](TASK_LEDGER.md) — implementation gaps and acceptance state
+- [`PHASE1_TODO.md`](PHASE1_TODO.md) — executable outstanding Phase 1 tasks and acceptance conditions
 - `runtime/tests/sa_adapter_test.cpp` — native SDK-adapter smoke route
 - `runtime/tests/sa_services_test.cpp` — VFS/input/audio/save smoke route
 - `emscripten/web/browser_services.js` — browser input/audio/save/range services

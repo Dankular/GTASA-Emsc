@@ -6,6 +6,7 @@
 /emscripten/web/*.wasm
 /reports/*.json
 /reports/
+/build-native/
 
 # Local tooling
 .cache/
