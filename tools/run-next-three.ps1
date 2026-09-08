@@ -43,6 +43,11 @@ Invoke-Step 'wasmAssembly' {
   }
 }
 
+Invoke-Step 'wasmGameplayAbi' {
+  node (Join-Path $root 'tools\wasm-gameplay-smoke.mjs')
+  if ($LASTEXITCODE -ne 0) { throw "WASM gameplay ABI smoke failed with exit code $LASTEXITCODE" }
+}
+
 $full = [IO.Path]::GetFullPath($Report)
 New-Item -ItemType Directory -Force -Path (Split-Path $full) | Out-Null
 $results | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $full -Encoding utf8
