@@ -26,6 +26,7 @@
       const phase = module._sa_port_phase();
       const emscripten = module._sa_port_is_emscripten();
       const webgpu = !!navigator.gpu;
+      const boundaries = module._sa_subsystems_boundary_ready();
       let adapter = null;
       let features = [];
       if (webgpu) {
@@ -36,7 +37,8 @@
       status.textContent = JSON.stringify({ ok: true, phase, emscripten,
         rendererTier: webgpu && adapter ? 'webgpu-core' : 'legacy-webgl2',
         webgpu, adapter: adapter?.info?.vendor || adapter?.name || null,
-        optionalFeatures: features, deviceLoss: 'controlled-state-ready' }, null, 2);
+        optionalFeatures: features, subsystemBoundaries: boundaries === 1 ? 'all-ready' : 'incomplete',
+        deviceLoss: 'controlled-state-ready' }, null, 2);
     } catch (error) {
       status.className = 'error';
       status.textContent = `Probe failed: ${error?.stack || error}`;

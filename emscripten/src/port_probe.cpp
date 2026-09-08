@@ -1,5 +1,6 @@
 #include <cstdio>
 #include "browser_game_rt.h"
+#include "sa_subsystem_bridge.h"
 
 #ifdef __EMSCRIPTEN__
 #    include <emscripten/emscripten.h>
@@ -30,6 +31,13 @@ EMSCRIPTEN_KEEPALIVE
 #endif
 int sa_port_renderer_tier() {
     return static_cast<int>(browsergamert::probeCapabilities().tier);
+}
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_subsystems_boundary_ready() {
+    return browsergamert::SaSubsystemBridge{}.allBoundariesReady() ? 1 : 0;
 }
 
 }

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(sa_port_probe src/port_probe.cpp)
 target_sources(sa_port_probe PRIVATE ../runtime/src/browser_game_rt.cpp)
+target_sources(sa_port_probe PRIVATE ../runtime/src/sa_subsystem_bridge.cpp)
 target_include_directories(sa_port_probe PRIVATE ../runtime/include)
 target_compile_definitions(sa_port_probe PRIVATE BROWSER_GAME_RT_PROBE=1)
 
@@ -21,7 +22,7 @@ if(EMSCRIPTEN)
         "-sUSE_WEBGL2=1"
         "-sFORCE_FILESYSTEM=1"
         "-sEXPORTED_RUNTIME_METHODS=['FS']"
-        "-sEXPORTED_FUNCTIONS=['_main','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier']"
+        "-sEXPORTED_FUNCTIONS=['_main','_sa_port_phase','_sa_port_is_emscripten','_sa_port_renderer_tier','_sa_subsystems_boundary_ready']"
     )
 else()
     message(STATUS "Configuring the native probe; use emcmake for the browser artifact")

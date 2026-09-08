@@ -23,5 +23,9 @@ The source inventory and native import evidence are now merged by
 not waive the standalone-SA gate. Each annotation carries its next detachment
 task so implementation can proceed subsystem by subsystem.
 
+All eleven tracks now enter the compiled `SaSubsystemBridge` together. The
+bridge marks nine native boundaries ready for implementation and keeps vehicle
+and interior parity explicitly pending their gameplay smoke routes.
+
 The scaffold is intentionally additive: it does not copy proprietary game data
 or reintroduce the injected DLL into this repository.
