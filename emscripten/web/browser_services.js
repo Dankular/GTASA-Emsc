@@ -23,3 +23,11 @@ export class RangeVfs {
   async read(url,offset,size){const r=await this.fetcher(url,{headers:{Range:`bytes=${offset}-${offset+size-1}`}});if(!(r.ok||r.status===206))throw new Error(`asset read failed: ${r.status}`);return new Uint8Array(await r.arrayBuffer());}
 }
 export function installLifecycle({audio}={}){document.addEventListener('visibilitychange',()=>document.hidden?audio?.pause():audio?.resume());window.addEventListener('resize',()=>window.dispatchEvent(new CustomEvent('browser-game-resize',{detail:{width:innerWidth,height:innerHeight}})));}
+export class GameRuntimeController {
+  constructor(module,input){this.module=module;this.input=input;this.running=false;this.last=0;}
+  start(){if(this.module._sa_runtime_init()!==0)throw new Error('WASM runtime init failed');this.running=true;this.last=performance.now();requestAnimationFrame(t=>this.frame(t));}
+  frame(now){if(!this.running)return;const dt=Math.min((now-this.last)/1000,0.1);this.last=now;const s=this.input.pollGamepad();this.module._sa_runtime_tick(dt,s.steering,s.throttle,s.brake);requestAnimationFrame(t=>this.frame(t));}
+  stop(){this.running=false;}
+  enterVehicle(model=411){return this.module._sa_runtime_enter_vehicle(model)===0;}
+  enterInterior(id=0){return this.module._sa_runtime_enter_interior(id)===0;}
+}

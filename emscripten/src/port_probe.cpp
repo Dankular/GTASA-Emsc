@@ -4,6 +4,11 @@
 #include "sa_adapters.h"
 #include "sa_services.h"
 
+namespace {
+browsergamert::SaAdapters g_runtime;
+bool g_runtime_ready = false;
+}
+
 #ifdef __EMSCRIPTEN__
 #    include <emscripten/emscripten.h>
 #endif
@@ -51,6 +56,30 @@ int sa_adapter_smoke() { return browsergamert::runSaAdapterSmoke(); }
 EMSCRIPTEN_KEEPALIVE
 #endif
 int sa_services_smoke() { return browsergamert::runServiceSmoke(); }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_init() { g_runtime_ready = g_runtime.initialize(); return g_runtime_ready ? 0 : 1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_tick(float dt, float steering, float throttle, float brake) {
+    if (!g_runtime_ready && sa_runtime_init() != 0) return 1;
+    g_runtime.tick(dt, {steering, throttle, brake, false});
+    return 0;
+}
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_enter_vehicle(int model) { return g_runtime.enterVehicle(static_cast<uint32_t>(model), {}) ? 0 : 1; }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_runtime_enter_interior(int id) { return g_runtime.enterInterior(id) ? 0 : 1; }
 
 }
 

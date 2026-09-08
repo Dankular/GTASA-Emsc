@@ -19,6 +19,7 @@ Start here:
 - `runtime/tests/sa_adapter_test.cpp` — native SDK-adapter smoke route
 - `runtime/tests/sa_services_test.cpp` — VFS/input/audio/save smoke route
 - `emscripten/web/browser_services.js` — browser input/audio/save/range services
+- `GameRuntimeController` — frame loop and WASM ABI integration
 
 No proprietary game assets are included.
 

@@ -47,3 +47,9 @@ fullscreen, visibility pause/resume, IndexedDB save testing and Range-backed
 asset reads into the page. The remaining P1.5 work is gameplay integration and
 browser automation against the eventual `sa.wasm`, not another platform API
 design pass.
+
+The WASM boundary is now integrated through `GameRuntimeController`: browser
+input is sampled every animation frame and passed to runtime ticks, runtime
+initialization is explicit, and vehicle/interior entry calls cross the same
+exported ABI. The current probe exercises that contract; the production engine
+will replace the probe exports without changing the browser controller.
