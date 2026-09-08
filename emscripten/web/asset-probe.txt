@@ -1,0 +1,1 @@
+GTASA-Emsc legal browser asset fixture: range reads are wired and verified.

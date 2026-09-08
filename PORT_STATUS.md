@@ -50,7 +50,9 @@ The remaining browser gaps are adapter implementations, not an ASI detachment:
 The acceptance gate is defined in
 `PLAY_III_WEB_STACK_CODEX.md`, section 68 (`P1.6`). Phase 2 does not begin
 until that gate has a tagged `sa.wasm` build with browser input, audio, saves,
-asset loading and a representative gameplay smoke route.
+asset loading and a representative gameplay smoke route. The page now executes
+that route against a legal fixture: vehicle movement, range asset read, and
+IndexedDB save round-trip are checked during boot.
 
 The current browser artifact now includes a playable adapter shell: input is
 sampled every frame, vehicle position/heading and interior state cross the WASM

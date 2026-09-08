@@ -23,7 +23,7 @@
     <pre id="status">Loading WebAssembly module…</pre>
   </main>
   <script type="module">
-    import { BrowserInput, BrowserAudioGate, SaveManager, GameRuntimeController, installLifecycle } from './browser_services.js';
+    import { BrowserInput, BrowserAudioGate, SaveManager, RangeVfs, GameRuntimeController, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
     const canvas = document.querySelector('#game');
     const ctx = canvas.getContext('2d');
@@ -53,6 +53,11 @@
       const runtime = new GameRuntimeController(module,input,draw);
       document.querySelector('#vehicle').onclick=()=>runtime.enterVehicle(411);
       runtime.start();
+      const entered = runtime.enterVehicle(411);
+      module._sa_runtime_tick(1, 0, 1, 0);
+      const assetBytes = await new RangeVfs().read('./asset-probe.txt', 0, 12);
+      await saves.put('acceptance',{x:module._sa_runtime_vehicle_x(),assetBytes:assetBytes.length});
+      const saved = await saves.get('acceptance');
       let adapter = null;
       let features = [];
       if (webgpu) {
@@ -66,6 +71,8 @@
         optionalFeatures: features, subsystemBoundaries: boundaries === 1 ? 'all-ready' : 'incomplete',
         sdkAdapterSmoke: adapterSmoke === 0 ? 'passed' : `failed-${adapterSmoke}`,
         servicesSmoke: servicesSmoke === 0 ? 'passed' : `failed-${servicesSmoke}`, runtime: 'started',
+        gameplaySmoke: entered && saved?.assetBytes === assetBytes.length && saved.x > 0 ? 'passed' : 'failed',
+        assetRangeRead: assetBytes.length, saveRoundTrip: !!saved,
         deviceLoss: 'controlled-state-ready', browserServices: ['input','gamepad','touch','audio-gate','fullscreen','visibility','indexeddb-save','range-vfs'] }, null, 2);
     } catch (error) {
       status.className = 'error';
