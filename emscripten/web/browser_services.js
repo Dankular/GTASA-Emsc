@@ -247,7 +247,9 @@ export function parseDffRenderMesh(bytes){
     // PC SA stores a Struct child (type 1, size, version) before the
     // geometry fields; retain direct-payload support for portable fixtures.
     let dataEnd=end;if(u(q)===1){const structSize=u(q+4);if(structSize>dataEnd-q-12)continue;q+=12;dataEnd=q+structSize;}
-    const flags=u(q),tri=u(q+4),nv=u(q+8),morph=u(q+12);q+=16;
+    // PC SA geometry chunks commonly wrap the payload in a Struct child.
+    if(q+12<=end&&u(q)===1){const childSize=u(q+4);if(childSize>end-q-12)continue;q+=12;}
+    if(q+16>end)continue;const flags=u(q),tri=u(q+4),nv=u(q+8),morph=u(q+12);q+=16;
     if(!morph||morph>16||nv<3||nv>10000000||tri<1||tri>20000000||(flags&0x01000000))continue;
     let uvSets=(flags>>16)&255;if(!uvSets&&(flags&4))uvSets=1;if(uvSets>8)continue;
     const prelit=!!(flags&8);const uvAt=q+(prelit?nv*4:0);q=uvAt+nv*uvSets*8;const triAt=q;q+=tri*8;q+=16;
@@ -257,8 +259,6 @@ export function parseDffRenderMesh(bytes){
     for(let i=0;i<tri;i++){const a=d.getUint16(triAt+i*8,true),bb=d.getUint16(triAt+i*8+2,true),c=d.getUint16(triAt+i*8+4,true);if(a>=nv||bb>=nv||c>=nv){valid=false;break;}indices[i*3]=a;indices[i*3+1]=bb;indices[i*3+2]=c;}if(valid)return {positions,normals,texcoords,indices};
   }throw new Error('DFF contains no portable geometry');
 }
-export { parseDffRenderMesh };
-
 // A legal five-vertex RenderWare fixture exercises the same upload/parser path
 // as an externally mounted user-owned DFF without bundling proprietary bytes.
 export function createRenderWareFixture(){const nv=5,faces=[[0,1,4],[1,2,4],[2,3,4],[3,0,4],[3,2,1],[3,1,0]],tri=faces.length,payload=new ArrayBuffer(16+tri*8+16+8+nv*12+nv*12),d=new DataView(payload);let q=0;d.setUint32(q,0,true);q+=4;d.setUint32(q,tri,true);q+=4;d.setUint32(q,nv,true);q+=4;d.setUint32(q,1,true);q+=4;for(const t of faces){d.setUint16(q,t[0],true);d.setUint16(q+2,t[1],true);d.setUint16(q+4,t[2],true);d.setUint16(q+6,0,true);q+=8;}for(let i=0;i<4;i++)d.setFloat32(q+i*4,0,true);q+=16;d.setUint32(q,1,true);d.setUint32(q+4,1,true);q+=8;const p=[[-1,-1,0],[1,-1,0],[1,1,0],[-1,1,0],[0,0,1.7]],n=[[0,-.7,.7],[.7,0,.7],[0,.7,.7],[-.7,0,.7],[0,0,1]];for(const v of p){for(const x of v){d.setFloat32(q,x,true);q+=4;}}for(const v of n){for(const x of v){d.setFloat32(q,x,true);q+=4;}}const out=new Uint8Array(12+12+payload.byteLength);const o=new DataView(out.buffer);o.setUint32(0,0x10,true);o.setUint32(4,out.byteLength-12,true);o.setUint32(8,0x1803ffff,true);o.setUint32(12,0x0f,true);o.setUint32(16,payload.byteLength,true);o.setUint32(20,0x1803ffff,true);out.set(new Uint8Array(payload),24);return out;}
