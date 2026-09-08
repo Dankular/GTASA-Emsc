@@ -204,9 +204,9 @@ int sa_runtime_interior_active() { return g_runtime.interior().active ? 1 : 0; }
 }
 
 int main() {
-    std::puts("GTASA-Emsc Phase 1 probe");
+    std::puts("GTASA-Emsc browser runtime");
     auto caps = browsergamert::probeCapabilities();
-    std::printf("runtime: tier=%s webgl2=%d webgpu=%d threads=%d\n",
+    std::printf("runtime: tier=%s webgl2=%d webgpu=%d threads=%d state=menu-ready\n",
         browsergamert::tierName(caps.tier), caps.webgl2, caps.webgpu, caps.threads);
     return 0;
 }
