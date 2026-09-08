@@ -1,5 +1,6 @@
 #include "sa_world_stream.h"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <limits>
@@ -75,18 +76,34 @@ bool parseColCollision(const std::vector<uint8_t>& b, CollisionMesh& out) {
 
 bool WorldStream::open(const std::string& path) { pending_.clear(); loaded_.clear(); return archive_.open(path); }
 bool WorldStream::request(const std::string& name, int priority) {
+  return requestAt(name, priority, 0, 0);
+}
+bool WorldStream::requestAt(const std::string& name, int priority, int32_t sectorX, int32_t sectorY) {
   if (!archive_.entries().size() || loaded(name)) return false;
   auto it=std::find_if(archive_.entries().begin(),archive_.entries().end(),[&](const ImgEntry&e){return e.name==name;});
   if (it==archive_.entries().end()) return false;
-  auto q=std::find_if(pending_.begin(),pending_.end(),[&](const StreamRequest&r){return r.name==name;});
-  if(q!=pending_.end()){q->priority=std::max(q->priority,priority);return true;}
-  pending_.push_back({name,priority}); return true;
+  auto q=std::find_if(pending_.begin(),pending_.end(),[&](const WorldStreamRequest&r){return r.name==name;});
+  if(q!=pending_.end()){q->priority=std::max(q->priority,priority);q->sectorX=sectorX;q->sectorY=sectorY;return true;}
+  pending_.push_back({name,priority,sectorX,sectorY}); return true;
+}
+bool WorldStream::requestSector(int32_t sectorX, int32_t sectorY, int priority) {
+  // IMG directories do not contain placement metadata. Until IPL/IDE world
+  // placement is attached, a sector request conservatively schedules the
+  // collision set and tags each request with the requested sector.
+  bool any=false;
+  for (const auto& e : archive_.entries()) {
+    if (!suffix(e.name, ".col")) continue;
+    any = requestAt(e.name, priority, sectorX, sectorY) || any;
+  }
+  return any;
 }
 bool WorldStream::pump(uint32_t budget) {
   bool any=false;
   while (budget-- && !pending_.empty()) {
-    auto q=std::max_element(pending_.begin(),pending_.end(),[](const auto&a,const auto&b){return a.priority<b.priority;});
-    StreamRequest r=*q; pending_.erase(q);
+    auto q=std::max_element(pending_.begin(),pending_.end(),[](const auto&a,const auto&b){
+      return a.priority<b.priority || (a.priority==b.priority && a.name>b.name);
+    });
+    WorldStreamRequest r=*q; pending_.erase(q);
     auto it=std::find_if(archive_.entries().begin(),archive_.entries().end(),[&](const ImgEntry&e){return e.name==r.name;});
     if(it==archive_.entries().end()) continue;
     std::vector<uint8_t> bytes; if(!archive_.read(r.name,0,it->size,bytes)) continue;
@@ -98,13 +115,53 @@ bool WorldStream::loaded(const std::string& name) const { return std::any_of(loa
 const std::vector<uint8_t>* WorldStream::asset(const std::string& name) const { auto i=std::find_if(loaded_.begin(),loaded_.end(),[&](const Loaded&l){return l.name==name;}); return i==loaded_.end()?nullptr:&i->bytes; }
 const CollisionMesh* WorldStream::collision(const std::string& name) const { auto i=std::find_if(loaded_.begin(),loaded_.end(),[&](const Loaded&l){return l.name==name&&l.hasCollision;}); return i==loaded_.end()?nullptr:&i->collision; }
 
+namespace {
+bool overlaps(const CollisionBounds& a, const CollisionBounds& b) {
+  return a.minX<=b.maxX && a.maxX>=b.minX && a.minY<=b.maxY && a.maxY>=b.minY &&
+         a.minZ<=b.maxZ && a.maxZ>=b.minZ;
+}
+}
+size_t WorldStream::queryAabb(const CollisionBounds& area, std::vector<CollisionHit>& out) const {
+  out.clear();
+  for (const auto& l : loaded_) if (l.hasCollision && overlaps(area, l.collision.bounds))
+    out.push_back({l.name, 0.0f, l.collision.bounds});
+  return out.size();
+}
+bool WorldStream::raycast(const CollisionVec3& o, const CollisionVec3& d, float maxDistance, CollisionHit& out) const {
+  bool found=false; float best=maxDistance;
+  for (const auto& l : loaded_) if (l.hasCollision) {
+    float tmin=0.0f, tmax=maxDistance;
+    const float origin[3]={o.x,o.y,o.z}, dir[3]={d.x,d.y,d.z};
+    const float mn[3]={l.collision.bounds.minX,l.collision.bounds.minY,l.collision.bounds.minZ};
+    const float mx[3]={l.collision.bounds.maxX,l.collision.bounds.maxY,l.collision.bounds.maxZ};
+    bool hit=true;
+    for (int axis=0; axis<3; ++axis) {
+      if (std::abs(dir[axis]) < 1.0e-8f) { if (origin[axis]<mn[axis] || origin[axis]>mx[axis]) { hit=false; break; } }
+      else { float a=(mn[axis]-origin[axis])/dir[axis], b=(mx[axis]-origin[axis])/dir[axis]; if(a>b) std::swap(a,b); tmin=std::max(tmin,a); tmax=std::min(tmax,b); if(tmin>tmax) { hit=false; break; } }
+    }
+    if (hit && tmin<best) { best=tmin; out={l.name,tmin,l.collision.bounds}; found=true; }
+  }
+  return found;
+}
+std::pair<int32_t,int32_t> WorldStream::sectorFor(float x, float y, float size) {
+  if (!(size>0.0f)) size=300.0f;
+  return {static_cast<int32_t>(std::floor(x/size)), static_cast<int32_t>(std::floor(y/size))};
+}
+
 int runWorldStreamSmoke(const std::string& path) {
   WorldStream s; if(!s.open(path)) return 1;
   auto col=std::find_if(s.entries().begin(),s.entries().end(),[](const ImgEntry&e){return suffix(e.name,".col");});
   if(col==s.entries().end()) return 2;
-  if(!s.request(col->name,1)||!s.request(col->name,9)||s.pending()!=1) return 3;
+  if(!s.requestSector(0,0,1)||!s.request(col->name,1)||!s.request(col->name,9)||s.pending()==0) return 3;
   if(!s.pump()||!s.loaded(col->name)||!s.asset(col->name)) return 4;
-  if(!s.collision(col->name)) return 5;
+  const auto* mesh=s.collision(col->name); if(!mesh) return 5;
+  std::vector<CollisionHit> hits;
+  if(s.queryAabb(mesh->bounds,hits)==0) return 6;
+  auto sector=WorldStream::sectorFor(mesh->bounds.minX,mesh->bounds.minY);
+  if(sector.first != static_cast<int32_t>(std::floor(mesh->bounds.minX/300.0f))) return 7;
+  CollisionVec3 origin{mesh->bounds.minX-1.0f,(mesh->bounds.minY+mesh->bounds.maxY)*0.5f,(mesh->bounds.minZ+mesh->bounds.maxZ)*0.5f};
+  CollisionHit hit{};
+  if(!s.raycast(origin,{1,0,0},100000000.0f,hit)) return 8;
   return 0;
 }
 }
