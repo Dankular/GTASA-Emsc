@@ -61,7 +61,8 @@
       document.querySelector('#save-runtime').onclick=async()=>{ status.dataset.runtimeSave=await runtime.saveToBrowser(saves,'browser-runtime')?'passed':'failed'; };
       document.querySelector('#load-runtime').onclick=async()=>{ status.dataset.runtimeLoad=await runtime.loadFromBrowser(saves,'browser-runtime')?'passed':'failed'; };
       let entered = false, mission = false;
-      document.querySelector('#new-game').onclick=async()=>{await audio.unlock();document.querySelector('#menu').hidden=true;runtime.start();entered=runtime.enterVehicle(411);mission=runtime.runMission();status.className='ok';status.textContent='New game started — WASD/arrows drive · Q/E orbit camera';};
+      document.querySelector('#new-game').onclick=async()=>{await audio.unlock();document.querySelector('#menu').hidden=true;const ok=runtime.startRoute({audio});entered=ok;mission=ok;status.className='ok';status.textContent='New game started — streaming world / mission route';};
+      const routeTimer=setInterval(async()=>{const r=runtime.route;if(r.phase==='complete'&&!r.saved){r.saved=await runtime.saveToBrowser(saves,'p1-route');status.textContent=`Route ${r.saved?'complete — save written':'save failed'} · vehicle → mission → interior`; }},100);
       const content = await ContentManifest.load('./content-manifest.json');
       const assetBytes = await content.readVerified('phase1-asset-probe');
       let adapter = null;
