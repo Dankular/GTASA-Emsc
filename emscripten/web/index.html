@@ -37,7 +37,16 @@
     import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, UserInstallMount, GameRuntimeController, WebGL2Renderer, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
     const canvas = document.querySelector('#game');
-    const renderer = new WebGL2Renderer(canvas);
+    let renderer;
+    try {
+      renderer = new WebGL2Renderer(canvas);
+    } catch (error) {
+      // Keep the route usable when WebGL2 shader/context creation fails.
+      const ctx = canvas.getContext('2d');
+      renderer = { draw(state={}) { ctx.fillStyle='#091522'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#fca5a5'; ctx.fillText(`WebGL2 unavailable: ${error?.message||error}`,16,28); ctx.fillStyle='#22c55e'; ctx.fillRect(460+(state.x||0)*4,260-(state.y||0)*4,24,14); } };
+      status.className='error';
+      status.textContent=`Renderer fallback active: ${error?.message||error}`;
+    }
     const input = new BrowserInput();
     const audio = new BrowserAudioGate();
     const saves = new SaveManager();
@@ -63,7 +72,7 @@
       document.querySelector('#save-runtime').onclick=async()=>{ status.dataset.runtimeSave=await runtime.saveToBrowser(saves,'browser-runtime')?'passed':'failed'; };
       document.querySelector('#load-runtime').onclick=async()=>{ status.dataset.runtimeLoad=await runtime.loadFromBrowser(saves,'browser-runtime')?'passed':'failed'; };
       let entered = false, mission = false;
-      document.querySelector('#new-game').onclick=async()=>{await audio.unlock();document.querySelector('#menu').hidden=true;const ok=runtime.startRoute({audio});entered=ok;mission=ok;status.className='ok';status.textContent='New game started — streaming world / mission route';};
+      document.querySelector('#new-game').onclick=async()=>{try{await audio.unlock();document.querySelector('#menu').hidden=true;const ok=runtime.startRoute({audio});entered=ok;mission=ok;status.className=ok?'ok':'error';status.textContent=ok?'New game started — streaming world / mission route':'New game failed to start';}catch(error){status.className='error';status.textContent=`New game failed: ${error?.stack||error}`;}};
       const routeTimer=setInterval(async()=>{const r=runtime.route;if(r.phase==='complete'&&!r.saved){r.saved=await runtime.saveToBrowser(saves,'p1-route');status.textContent=`Route ${r.saved?'complete — save written':'save failed'} · vehicle → mission → interior`; }},100);
       const content = await ContentManifest.load('./content-manifest.json');
       const assetBytes = await content.readVerified('phase1-asset-probe');
