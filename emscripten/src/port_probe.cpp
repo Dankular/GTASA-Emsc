@@ -1,6 +1,7 @@
 #include <cstdio>
 #include "browser_game_rt.h"
 #include "sa_subsystem_bridge.h"
+#include "sa_adapters.h"
 
 #ifdef __EMSCRIPTEN__
 #    include <emscripten/emscripten.h>
@@ -39,6 +40,11 @@ EMSCRIPTEN_KEEPALIVE
 int sa_subsystems_boundary_ready() {
     return browsergamert::SaSubsystemBridge{}.allBoundariesReady() ? 1 : 0;
 }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int sa_adapter_smoke() { return browsergamert::runSaAdapterSmoke(); }
 
 }
 

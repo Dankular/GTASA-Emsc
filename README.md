@@ -16,5 +16,15 @@ Start here:
 - [`SDK_PORT_PATH.md`](SDK_PORT_PATH.md) — SDK-first migration contract
 - [`BINARY_MAPPING.md`](BINARY_MAPPING.md) — reverse-engineering evidence contract
 - [`TASK_LEDGER.md`](TASK_LEDGER.md) — implementation gaps and acceptance state
+- `runtime/tests/sa_adapter_test.cpp` — native SDK-adapter smoke route
 
 No proprietary game assets are included.
+
+Build and run the adapter baseline:
+
+```powershell
+emscripten\scripts\build-web.ps1
+cmake -S emscripten -B emscripten\build-native -G "Visual Studio 17 2022" -A x64
+cmake --build emscripten\build-native --config Release --target sa_adapter_test
+emscripten\build-native\Release\sa_adapter_test.exe
+```

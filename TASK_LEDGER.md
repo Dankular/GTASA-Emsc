@@ -14,7 +14,7 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | Render graph validation | P2.4 | Scaffolded | duplicate and read/write hazard checks |
 | Priority stream scheduler | P1.4/P2.8 | Scaffolded | stable critical-first queue |
 | SDK class/API inventory | P1.1 | Done | `tools/map-plugin-sdk.ps1`, pinned SDK commit |
-| Portable subsystem adapters | P1.2 | In progress | `runtime/sa_subsystem_bridge.h`, all eleven tracks registered |
+| Portable subsystem adapters | P1.2 | In progress | `runtime/sa_subsystem_bridge.h` + `runtime/sa_adapters.h`, all eleven tracks registered |
 | SA asset/save runtime | P1.4 | Next | SDK contracts plus user-owned fixture/VFS adapters |
 | Browser feature parity | P1.5 | Next | input/audio/touch/save/stream tests |
 | P1.6 acceptance route | P1.6 | Pending | begins after adapters and legal fixture pass |
@@ -30,3 +30,8 @@ the ASI path; both are now adapter tasks rather than native-injection gates.
 
 The scaffold is intentionally additive: it does not copy proprietary game data
 or reintroduce the injected DLL into this repository.
+
+The SDK adapter baseline now has a deterministic smoke route covering script
+dispatch, vehicle movement, interior entry/exit, save and reload. Native and
+WASM builds both compile this route; it is a contract test, not yet the full
+commercial game's gameplay route.

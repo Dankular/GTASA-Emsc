@@ -27,6 +27,7 @@
       const emscripten = module._sa_port_is_emscripten();
       const webgpu = !!navigator.gpu;
       const boundaries = module._sa_subsystems_boundary_ready();
+      const adapterSmoke = module._sa_adapter_smoke();
       let adapter = null;
       let features = [];
       if (webgpu) {
@@ -38,6 +39,7 @@
         rendererTier: webgpu && adapter ? 'webgpu-core' : 'legacy-webgl2',
         webgpu, adapter: adapter?.info?.vendor || adapter?.name || null,
         optionalFeatures: features, subsystemBoundaries: boundaries === 1 ? 'all-ready' : 'incomplete',
+        sdkAdapterSmoke: adapterSmoke === 0 ? 'passed' : `failed-${adapterSmoke}`,
         deviceLoss: 'controlled-state-ready' }, null, 2);
     } catch (error) {
       status.className = 'error';
