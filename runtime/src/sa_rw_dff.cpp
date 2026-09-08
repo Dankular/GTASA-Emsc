@@ -39,8 +39,16 @@ bool f32(const std::vector<uint8_t>& b, uint32_t at, float& out) {
 
 bool geometry(const std::vector<uint8_t>& b, const RwChunk& c, RwRenderMesh& out) {
   if (c.type != 0x0F || c.offset > b.size() || c.size > b.size() - c.offset - 12) return false;
-  const uint32_t begin = c.offset + 12, end = begin + c.size;
+  uint32_t begin = c.offset + 12, end = begin + c.size;
   if (c.size < 16) return false;
+  // PC SA DFFs wrap geometry data in a RenderWare Struct child. Keep the
+  // direct-payload form too for portable fixtures.
+  if (end - begin >= 12 && u32(b.data()+begin) == 1) {
+    const uint32_t structSize = u32(b.data()+begin+4);
+    if (structSize > end - begin - 12) return false;
+    begin += 12;
+    end = begin + structSize;
+  }
   uint32_t at = begin;
   const uint32_t flags = u32(b.data()+at); at += 4;
   const uint32_t triangles = u32(b.data()+at); at += 4;

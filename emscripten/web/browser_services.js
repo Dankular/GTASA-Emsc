@@ -243,19 +243,19 @@ export function parseDffRenderMesh(bytes){
   // Match the native bounded geometry reader: SA DFFs nest geometry inside
   // clump/frame/list chunks, so scan aligned chunk headers rather than only
   // inspecting the root's immediate children.
-  for(let at=12;at+12<=b.byteLength;at+=4){if(u(at)!==0x0f)continue;const size=u(at+4),p=at+12,end=p+size;if(size<16||end>b.byteLength)continue;let q=p;
+  // RenderWare chunk payloads are not required to be 4-byte padded; scan
+  // byte-wise so real SA entries with odd-sized frame/name chunks are found.
+  for(let at=12;at+12<=b.byteLength;at++){if(u(at)!==0x0f)continue;const size=u(at+4),p=at+12,end=p+size;if(size<16||end>b.byteLength)continue;let q=p;
     // PC SA stores a Struct child (type 1, size, version) before the
     // geometry fields; retain direct-payload support for portable fixtures.
     let dataEnd=end;if(u(q)===1){const structSize=u(q+4);if(structSize>dataEnd-q-12)continue;q+=12;dataEnd=q+structSize;}
-    // PC SA geometry chunks commonly wrap the payload in a Struct child.
-    if(q+12<=end&&u(q)===1){const childSize=u(q+4);if(childSize>end-q-12)continue;q+=12;}
     if(q+16>end)continue;const flags=u(q),tri=u(q+4),nv=u(q+8),morph=u(q+12);q+=16;
     if(!morph||morph>16||nv<3||nv>10000000||tri<1||tri>20000000||(flags&0x01000000))continue;
     let uvSets=(flags>>16)&255;if(!uvSets&&(flags&4))uvSets=1;if(uvSets>8)continue;
     const prelit=!!(flags&8);const uvAt=q+(prelit?nv*4:0);q=uvAt+nv*uvSets*8;const triAt=q;q+=tri*8;q+=16;
     if(q+8>dataEnd)continue;const hasV=u(q),hasN=u(q+4);q+=8;if(!hasV||q+nv*12>dataEnd)continue;
     const positions=new Float32Array(nv*3);for(let i=0;i<positions.length;i++)positions[i]=f(q+i*4);q+=nv*12;
-    const normals=hasN&&q+nv*12<=dataEnd?new Float32Array(b.buffer,b.byteOffset+q,nv*3):null;const texcoords=new Float32Array(nv*2);for(let i=0;i<nv&&uvSets;i++){texcoords[i*2]=f(uvAt+i*uvSets*8);texcoords[i*2+1]=f(uvAt+i*uvSets*8+4);}const indices=new Uint32Array(tri*3);let valid=true;
+    let normals=null;if(hasN&&q+nv*12<=dataEnd){normals=new Float32Array(nv*3);for(let i=0;i<normals.length;i++)normals[i]=f(q+i*4);}const texcoords=new Float32Array(nv*2);for(let i=0;i<nv&&uvSets;i++){texcoords[i*2]=f(uvAt+i*uvSets*8);texcoords[i*2+1]=f(uvAt+i*uvSets*8+4);}const indices=new Uint32Array(tri*3);let valid=true;
     for(let i=0;i<tri;i++){const a=d.getUint16(triAt+i*8,true),bb=d.getUint16(triAt+i*8+2,true),c=d.getUint16(triAt+i*8+4,true);if(a>=nv||bb>=nv||c>=nv){valid=false;break;}indices[i*3]=a;indices[i*3+1]=bb;indices[i*3+2]=c;}if(valid)return {positions,normals,texcoords,indices};
   }throw new Error('DFF contains no portable geometry');
 }
