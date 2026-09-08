@@ -18,5 +18,10 @@ they are not represented as completed by the probe.
 | SA asset/save runtime | P1.4 | Blocked | requires playable standalone file contract and user fixtures |
 | P1.6 acceptance route | P1.6 | Blocked | depends on P1.1–P1.5 |
 
+The source inventory and native import evidence are now merged by
+`tools/annotate-subsystems.ps1`. This closes the evidence-mapping gap; it does
+not waive the standalone-SA gate. Each annotation carries its next detachment
+task so implementation can proceed subsystem by subsystem.
+
 The scaffold is intentionally additive: it does not copy proprietary game data
 or reintroduce the injected DLL into this repository.

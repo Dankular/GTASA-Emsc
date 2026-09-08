@@ -25,3 +25,9 @@ backend while Compass's POSIX-only sandbox sources are unavailable:
 ```powershell
 .\tools\verify-native-binary.ps1
 ```
+
+Merge both evidence sets into subsystem annotations:
+
+```powershell
+.\tools\annotate-subsystems.ps1
+```
