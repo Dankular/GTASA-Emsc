@@ -69,7 +69,7 @@ export class ContentManifest {
       this.entries.set(entry.id,entry);
     }
   }
-  static async load(url='./content-manifest.json',fetcher=fetch){const r=await fetcher(url);if(!r.ok)throw new Error(`content manifest failed: ${r.status}`);return new ContentManifest(await r.json(),new URL('.',new URL(url,globalThis.location?.href||'http://localhost/')).href,new RangeVfs(fetcher));}
+  static async load(url='./content-manifest.json',fetcher=globalThis.fetch?.bind(globalThis)){if(!fetcher)throw new Error('Fetch API unavailable');const r=await fetcher(url);if(!r.ok)throw new Error(`content manifest failed: ${r.status}`);return new ContentManifest(await r.json(),new URL('.',new URL(url,globalThis.location?.href||'http://localhost/')).href,new RangeVfs(fetcher));}
   entry(id){const entry=this.entries.get(id);if(!entry)throw new Error(`content asset not found: ${id}`);return entry;}
   url(entry){return new URL(entry.path,this.baseUrl).href;}
   async read(id,offset=0,size=null){const entry=this.entry(id);const length=size??(entry.size-offset);if(offset+length>entry.size)throw new Error(`content range exceeds manifest: ${id}`);return this.vfs.read(this.url(entry),offset,length);}
