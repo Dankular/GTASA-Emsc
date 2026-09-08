@@ -16,10 +16,19 @@
   <main>
     <h1>GTASA-Emsc Phase 1 probe</h1>
     <p>This confirms the browser module contract. It is not yet the game.</p>
+    <button id="launch">Unlock audio / fullscreen</button>
+    <button id="save">Test IndexedDB save</button>
     <pre id="status">Loading WebAssembly module…</pre>
   </main>
   <script type="module">
+    import { BrowserInput, BrowserAudioGate, SaveManager, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
+    const input = new BrowserInput();
+    const audio = new BrowserAudioGate();
+    const saves = new SaveManager();
+    installLifecycle({audio});
+    document.querySelector('#launch').onclick = async () => { await audio.unlock(); await document.documentElement.requestFullscreen?.(); };
+    document.querySelector('#save').onclick = async () => { await saves.put('probe',{ok:true,at:Date.now(),input:input.pollGamepad()}); status.dataset.save='idbfs-ready'; };
     try {
       const factory = (await import('./sa_port_probe.js')).default;
       const module = await factory({ print: console.log, printErr: console.error });
@@ -42,7 +51,7 @@
         optionalFeatures: features, subsystemBoundaries: boundaries === 1 ? 'all-ready' : 'incomplete',
         sdkAdapterSmoke: adapterSmoke === 0 ? 'passed' : `failed-${adapterSmoke}`,
         servicesSmoke: servicesSmoke === 0 ? 'passed' : `failed-${servicesSmoke}`,
-        deviceLoss: 'controlled-state-ready' }, null, 2);
+        deviceLoss: 'controlled-state-ready', browserServices: ['input','gamepad','touch','audio-gate','fullscreen','visibility','indexeddb-save','range-vfs'] }, null, 2);
     } catch (error) {
       status.className = 'error';
       status.textContent = `Probe failed: ${error?.stack || error}`;

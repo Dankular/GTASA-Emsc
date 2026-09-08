@@ -18,6 +18,7 @@ Start here:
 - [`TASK_LEDGER.md`](TASK_LEDGER.md) — implementation gaps and acceptance state
 - `runtime/tests/sa_adapter_test.cpp` — native SDK-adapter smoke route
 - `runtime/tests/sa_services_test.cpp` — VFS/input/audio/save smoke route
+- `emscripten/web/browser_services.js` — browser input/audio/save/range services
 
 No proprietary game assets are included.
 

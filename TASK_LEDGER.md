@@ -16,7 +16,7 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | SDK class/API inventory | P1.1 | Done | `tools/map-plugin-sdk.ps1`, pinned SDK commit |
 | Portable subsystem adapters | P1.2 | In progress | `runtime/sa_subsystem_bridge.h` + `runtime/sa_adapters.h`, all eleven tracks registered |
 | SA asset/save runtime | P1.4 | In progress | `runtime/sa_services.h`: VFS ranges, saves import/export |
-| Browser feature parity | P1.5 | In progress | logical input + audio unlock/queue smoke route |
+| Browser feature parity | P1.5 | In progress | `browser_services.js`: input/audio/lifecycle/IndexedDB/RangeVfs |
 | P1.6 acceptance route | P1.6 | Pending | begins after adapters and legal fixture pass |
 
 The source inventory and native import evidence are now merged by
@@ -41,3 +41,9 @@ random-access reads), `LogicalInput` (keyboard/gamepad/touch state),
 `BrowserAudio` (gesture unlock and queued playback), and `PersistentSaves`
 (slot read/write plus import/export serialization). `sa_services_test` passes
 alongside the WASM build.
+
+The browser parity shell now wires keyboard/gamepad input, audio unlock/resume,
+fullscreen, visibility pause/resume, IndexedDB save testing and Range-backed
+asset reads into the page. The remaining P1.5 work is gameplay integration and
+browser automation against the eventual `sa.wasm`, not another platform API
+design pass.
