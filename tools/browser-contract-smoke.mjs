@@ -22,7 +22,7 @@ for (const ref of ['./browser_services.js', './sa_port_probe.js', './content-man
 for (const symbol of ['_sa_runtime_tick', '_sa_runtime_vehicle_x', '_sa_runtime_interior_active', '_sa_services_smoke']) {
   check(`wasm:export:${symbol}`, js.includes(symbol), 'generated Emscripten glue exposes runtime ABI');
 }
-for (const feature of ['indexedDB', 'Range', 'visibilitychange', 'getGamepads']) {
+for (const feature of ['indexedDB', 'Range', 'visibilitychange', 'getGamepads', 'createTextureUploadDescriptor', 'renderware-compressed']) {
   check(`browser-service:${feature}`, services.includes(feature), 'browser service contract');
 }
 check('browser-service:requestFullscreen', html.includes('requestFullscreen'), 'page exposes fullscreen control');

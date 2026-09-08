@@ -1,5 +1,6 @@
 # Emscripten/CMake outputs
 /emscripten/build*/
+/emscripten/build-native/
 /emscripten/web/*.js
 !/emscripten/web/browser_services.js
 /emscripten/web/*.wasm
