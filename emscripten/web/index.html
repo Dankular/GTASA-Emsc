@@ -67,7 +67,7 @@
       const adapterSmoke = module._sa_adapter_smoke();
       const servicesSmoke = module._sa_services_smoke();
       const scene = new WorldScene();
-      document.querySelector('#import-install').onclick=async()=>{try{mountedInstall=await UserInstallMount.pickDirectory();const sample=mountedInstall.manifest.entries.keys().next().value;status.dataset.install=`mounted:${mountedInstall.manifest.entries.size}`;status.textContent=`User install mounted (${mountedInstall.manifest.entries.size} assets); locating RenderWare geometry…`;if(sample)status.dataset.installProbe=(await mountedInstall.read(sample,0,Math.min(16,mountedInstall.entry(sample).size))).length;const asset=await scene.loadMountedAsset(mountedInstall);renderer.setMesh(asset.mesh,{name:`installed:${asset.entry}`,color:[.72,.58,.24,1]});status.dataset.asset=`${asset.archive||'loose'}:${asset.entry}`;status.textContent=`Installed asset active: ${asset.entry} · ${asset.mesh.indices.length/3} triangles`; }catch(error){status.className='error';status.textContent=`Install import failed: ${error?.message||error}`;}};
+      document.querySelector('#import-install').onclick=async()=>{try{mountedInstall=await UserInstallMount.pickDirectory();const sample=mountedInstall.manifest.entries.keys().next().value;status.dataset.install=`mounted:${mountedInstall.manifest.entries.size}`;status.textContent=`User install mounted (${mountedInstall.manifest.entries.size} assets); locating RenderWare geometry…`;if(sample)status.dataset.installProbe=(await mountedInstall.read(sample,0,Math.min(16,mountedInstall.entry(sample).size))).length;const asset=await scene.loadMountedAsset(mountedInstall);renderer.setMesh(asset.mesh,{name:`installed:${asset.entry}`,color:[.72,.58,.24,1]});if(asset.texturePixels){renderer.setTexture(asset.texturePixels);status.dataset.texture=`${asset.textures[0].name}:${asset.texturePixels.width}x${asset.texturePixels.height}`;}status.dataset.asset=`${asset.archive||'loose'}:${asset.entry}`;status.textContent=`Installed asset active: ${asset.entry} · ${asset.mesh.indices.length/3} triangles${asset.texturePixels?' · TXD material bound':''}`; }catch(error){status.className='error';status.textContent=`Install import failed: ${error?.message||error}`;}};
       const runtime = new GameRuntimeController(module,input,state => { state.scene=scene.update(state.x,state.y); renderer.draw(state); status.dataset.world=`sector:${state.scene.sector} loaded:${state.scene.loadedSectors} instances:${state.scene.instances.length}`; });
       input.bindTouchControls({accelerate:document.querySelector('#touch-accelerate'),reverse:document.querySelector('#touch-brake'),left:document.querySelector('#touch-left'),right:document.querySelector('#touch-right')});
       installLifecycle({audio,canvas,runtime});
@@ -81,6 +81,17 @@
       const routeTimer=setInterval(async()=>{const r=runtime.route;if(r.phase==='complete'&&!r.saved){r.saved=await runtime.saveToBrowser(saves,'p1-route');status.textContent=`Route ${r.saved?'complete — save written':'save failed'} · vehicle → mission → interior`; }},100);
       const content = await ContentManifest.load('./content-manifest.json');
       const assetBytes = await content.readVerified('phase1-asset-probe');
+      // When the local developer server is launched with GTASA_ASSET_ROOT,
+      // promote one real installed DFF from gta3.img into the renderer. The
+      // normal hosted build remains asset-clean and keeps the file-picker path.
+      try {
+        const localMount = await UserInstallMount.fromServer('/installed/models/gta3.img');
+        const localAsset = await scene.loadMountedAsset(localMount);
+        renderer.setMesh(localAsset.mesh,{name:`installed:${localAsset.entry}`,color:[.72,.58,.24,1]});
+        status.dataset.asset=`${localAsset.archive}:${localAsset.entry}`;
+        status.dataset.assetTriangles=String(localAsset.mesh.indices.length/3);
+        status.dataset.assetSource='local-user-install';
+      } catch (_) { /* hosted builds intentionally have no installed mount */ }
       let adapter = null;
       let features = [];
       if (webgpu) {

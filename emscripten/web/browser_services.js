@@ -64,6 +64,22 @@ export function uploadRgbaTexture(gl,pixels,options={}) {
   if(!gl||!pixels||!Number.isInteger(pixels.width)||!Number.isInteger(pixels.height)||pixels.width<1||pixels.height<1||pixels.rgba?.length!==pixels.width*pixels.height*4) throw new Error('invalid decoded TXD pixels');
   const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,options.flipY===true);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,options.mipmaps===false?gl.LINEAR:gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,pixels.width,pixels.height,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels.rgba);if(options.mipmaps!==false)gl.generateMipmap(gl.TEXTURE_2D);gl.bindTexture(gl.TEXTURE_2D,null);return texture;
 }
+// Decode the D3D RenderWare native raster used by San Andreas.  This is kept
+// in the browser layer so an imported install remains user-owned and only the
+// selected texture's bounded bytes are materialized.
+export function parseTxdTextures(bytes){
+  const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes),d=new DataView(b.buffer,b.byteOffset,b.byteLength),u=o=>d.getUint32(o,true),s=o=>d.getUint16(o,true);
+  if(b.length<12||u(0)!==0x16)throw new Error('unsupported TXD root');
+  const end=Math.min(b.length,12+u(4)),out=[];
+  for(let at=12;at+12<=end;){const type=u(at),size=u(at+4),p=at+12;if(p+size>end)break;if(type===0x15&&size>=12){const st=p,ss=u(st+4),q=st+12;if(u(st)===1&&ss>=88&&q+ss<=b.length){let name='';for(let i=8;i<40&&!b[q+i];i++);for(let i=8;i<40&&b[q+i];i++)name+=String.fromCharCode(b[q+i]);const t={name,width:s(q+80),height:s(q+82),depth:b[q+84],mipLevels:b[q+85]||1,rasterFormat:u(q+72),compression:b[q+87],hasAlpha:!!(u(q+72)&0x1000)||b[q+87]===9||b[q+87]===10,payloadOffset:q+88,payloadSize:ss-88};if(t.width&&t.height)out.push(t);}}
+    at=p+size;
+  } return out;
+}
+export function decodeTxdTexture(bytes,t){
+  const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);if(t.payloadOffset+t.payloadSize>b.length)throw new Error('TXD payload out of range');const out={width:t.width,height:t.height,rgba:new Uint8Array(t.width*t.height*4)},src=b.subarray(t.payloadOffset,t.payloadOffset+t.payloadSize),put=(x,y,c)=>{if(x<t.width&&y<t.height)out.rgba.set(c,(y*t.width+x)*4)},rgb565=(o)=>{const v=src[o]|src[o+1]<<8;return [((v>>11)&31)*255/31,((v>>5)&63)*255/63,(v&31)*255/31,255]};
+  if([1,9,10].includes(t.compression)){const bs=t.compression===1?8:16,bw=Math.ceil(t.width/4),bh=Math.ceil(t.height/4);if(src.length< bw*bh*bs)throw new Error('short compressed TXD');for(let by=0;by<bh;by++)for(let bx=0;bx<bw;bx++){const o=(by*bw+bx)*bs,c0=rgb565(o),c1=rgb565(o+2),col=[c0,c1,[0,0,0,255],[0,0,0,255]];if(c0[0]>c1[0]||t.compression!==1){for(let k=0;k<3;k++){col[2][k]=(2*c0[k]+c1[k])/3;col[3][k]=(c0[k]+2*c1[k])/3;}}else{for(let k=0;k<3;k++)col[2][k]=(c0[k]+c1[k])/2;col[3][3]=0;}let alpha=null,co=o;if(t.compression===9){alpha=[];for(let i=0;i<8;i++){const v=src[o+i];alpha[2*i]=(v&15)*17;alpha[2*i+1]=(v>>4)*17;}co+=8;}if(t.compression===10){alpha=[];const a0=src[o],a1=src[o+1],vals=[a0,a1];let bits=0;for(let i=0;i<6;i++)bits|=src[o+2+i]<<(8*i);if(a0>a1)for(let i=2;i<8;i++)vals[i]=((8-i)*a0+(i-1)*a1)/7;else{for(let i=2;i<6;i++)vals[i]=((6-i)*a0+(i-1)*a1)/5;vals[6]=0;vals[7]=255;}for(let i=0;i<16;i++)alpha[i]=vals[(bits>>(3*i))&7];co+=8;}const sel=src[co+4]|src[co+5]<<8|src[co+6]<<16|src[co+7]<<24;for(let py=0;py<4;py++)for(let px=0;px<4;px++){const c=[...col[(sel>>2*(py*4+px))&3]],ai=alpha?.[py*4+px];if(ai!==undefined)c[3]=ai;put(bx*4+px,by*4+py,c);}}return out;}
+  if(t.compression===0&&t.depth===32&&src.length>=t.width*t.height*4)for(let i=0;i<t.width*t.height;i++){out.rgba.set([src[i*4+2],src[i*4+1],src[i*4],src[i*4+3]],i*4);}else if(!out.rgba.some(Boolean))throw new Error('unsupported TXD raster');return out;
+}
 export class ContentManifest {
   constructor(manifest,baseUrl='.',vfs=new RangeVfs()){this.manifest=manifest;this.baseUrl=baseUrl;this.vfs=vfs;this.entries=new Map();
     if(!manifest||manifest.version!==1||!Array.isArray(manifest.assets))throw new Error('unsupported content manifest');
@@ -83,6 +99,15 @@ export class UserInstallMount {
   constructor(manifest,vfs){this.manifest=manifest;this.vfs=vfs;this.mountedAt=Date.now();}
   static async fromFiles(files){const map=new Map(),assets=[];for(const file of files){const path=(file.webkitRelativePath||file.name).replaceAll('\\','/').replace(/^.*?\//,'');if(!path||path.split('/').includes('..')||path.startsWith('/'))continue;const ext=path.slice(path.lastIndexOf('.')).toLowerCase();if(!['.img','.txd','.dff','.col','.ifp','.ipl','.ide','.dat','.scm','.wav','.mp3','.ogg'].includes(ext))continue;map.set(path,file);assets.push({id:path,path,size:file.size,sha256:null});}if(!assets.length)throw new Error('no supported San Andreas assets selected');const manifest=new ContentManifest({version:1,assets},'http://user-install.invalid/',new FileRangeVfs(map));return new UserInstallMount(manifest,new FileRangeVfs(map));}
   static async pickDirectory(){if(!globalThis.showDirectoryPicker)throw new Error('directory picker unavailable');const root=await showDirectoryPicker({mode:'read'}),files=[];const walk=async(dir,prefix='')=>{for await(const [name,entry] of dir.entries()){if(entry.kind==='file'){const f=await entry.getFile();Object.defineProperty(f,'webkitRelativePath',{value:`${prefix}${name}`});files.push(f);}else if(entry.kind==='directory')await walk(entry,`${prefix}${name}/`);}};await walk(root);return UserInstallMount.fromFiles(files);}
+  // Developer-only mount for a locally installed, user-owned game. The
+  // server must be started with GTASA_ASSET_ROOT; no proprietary bytes are
+  // copied into the web bundle or repository.
+  static async fromServer(archiveUrl='/installed/models/gta3.img'){
+    const r=await fetch(archiveUrl,{method:'HEAD'});if(!r.ok)throw new Error(`installed archive unavailable: ${r.status}`);
+    const size=Number(r.headers.get('content-length'));if(!Number.isSafeInteger(size)||size<8)throw new Error('installed archive size unavailable');
+    const path=archiveUrl.split('/').pop();const manifest=new ContentManifest({version:1,assets:[{id:path,path,size,sha256:null}]},new URL('.',new URL(archiveUrl,globalThis.location?.href||'http://localhost/')).href,new RangeVfs());
+    return new UserInstallMount(manifest,new RangeVfs());
+  }
   entry(id){return this.manifest.entry(id);}
   async read(id,offset=0,size=null){return this.manifest.read(id,offset,size);}
   // IMG v2 keeps its directory in the first 8 + count*32 bytes.  The browser
@@ -110,14 +135,17 @@ export class UserInstallMount {
     const archives=[...this.manifest.manifest.assets].filter(x=>x.path.toLowerCase().endsWith('.img'));
     for(const archive of archives){
       const entries=await this.imgEntries(archive.id);
-      for(const entry of entries.filter(x=>x.name.toLowerCase().endsWith('.dff')).slice(0,256)){
+      const preferred=['box_hse_13_sfxrf.dff','box_hse_06_sfxrf.dff','box_hse_04_sfxrf.dff','libstreetfar.dff'];
+      const dffs=entries.filter(x=>x.name.toLowerCase().endsWith('.dff'));
+      const ordered=[...preferred.map(n=>dffs.find(x=>x.name.toLowerCase()===n)).filter(Boolean),...dffs.filter(x=>!preferred.includes(x.name.toLowerCase()))];
+      for(const entry of ordered.slice(0,1024)){
         if(entry.size>64*1024*1024) continue;
         const bytes=await this.readImgEntry(archive.id,entry);
-        try { const mesh=parseDffRenderMesh(bytes); return {archive:archive.path,entry:entry.name,bytes,mesh}; } catch (_) { /* try the next model */ }
+        try { const mesh=parseDffRenderMesh(bytes); const txdEntry=entries.find(x=>x.name.toLowerCase().endsWith('.txd')); let txd=null,textures=[]; if(txdEntry){txd=await this.readImgEntry(archive.id,txdEntry);textures=parseTxdTextures(txd);} return {archive:archive.path,entry:entry.name,bytes,mesh,txd,txdEntry:txdEntry?.name,textures}; } catch (_) { /* try the next model */ }
       }
     }
     const loose=[...this.manifest.manifest.assets].filter(x=>x.path.toLowerCase().endsWith('.dff'));
-    for(const entry of loose.slice(0,256)){if(entry.size>64*1024*1024)continue;const bytes=await this.read(entry.id);try{return {archive:null,entry:entry.path,bytes,mesh:parseDffRenderMesh(bytes)};}catch(_){}}
+    for(const entry of loose.slice(0,256)){if(entry.size>64*1024*1024)continue;const bytes=await this.read(entry.id);try{const mesh=parseDffRenderMesh(bytes);const txdEntry=[...this.manifest.manifest.assets].find(x=>x.path.toLowerCase().endsWith('.txd'));let txd=null,textures=[];if(txdEntry){txd=await this.read(txdEntry.id);textures=parseTxdTextures(txd);}return {archive:null,entry:entry.path,bytes,mesh,txd,txdEntry:txdEntry?.path,textures};}catch(_){} }
     throw new Error('no browser-decodable DFF found in mounted install');
   }
   async persistToOpfs(name='gtasa-install'){if(!navigator.storage?.getDirectory)throw new Error('OPFS unavailable');const root=await navigator.storage.getDirectory(),dir=await root.getDirectoryHandle(name,{create:true});for(const entry of this.manifest.manifest.assets){const file=this.vfs.files?.get(entry.path);if(!file)continue;const out=await dir.getFileHandle(entry.path.replaceAll('/','_'),{create:true}),w=await out.createWritable();await w.write(await file.arrayBuffer());await w.close();}return name;}
@@ -127,6 +155,7 @@ export class WorldScene {
   constructor(){this.instances=[];this.loadedSectors=new Set();this.routeSector='0:0';}
   async loadMountedAsset(mount){
     const asset=await mount.findFirstDff();
+    if(asset.txd&&asset.textures?.length){try{asset.texturePixels=decodeTxdTexture(asset.txd,asset.textures[0]);}catch(_){} }
     this.asset=asset; this.assetInstances=[{model:asset.entry,x:0,y:0,z:0,sx:8,sy:8,sz:8,rz:0,asset:true}];
     return asset;
   }
@@ -134,7 +163,7 @@ export class WorldScene {
   loadIpl(text){this.instances=[];let active=false;for(const line of String(text).split(/\r?\n/)){const f=line.split('#')[0].split(',').map(x=>x.trim());if(!f[0])continue;const s=f[0].toLowerCase();if(s==='inst'){active=true;continue}if(s==='end'){active=false;continue}if(active&&f.length>=10){const n=f.slice(3,10).map(Number);if(n.every(Number.isFinite))this.instances.push({model:f[1],x:n[0],y:n[1],z:n[2],rz:n[5]});}}return this.instances.length;}
   streamAround(x,y){const sx=Math.floor(x/300),sy=Math.floor(y/300),key=`${sx}:${sy}`;this.routeSector=key;if(this.loadedSectors.has(key))return;this.loadedSectors.add(key);const placed=this.instances.filter(i=>Math.floor(i.x/300)===sx&&Math.floor(i.y/300)===sy);this.visible=placed.length?placed:(this.assetInstances||this.makeSector(sx,sy));}
   makeSector(sx,sy){const out=[],ox=sx*300,oy=sy*300;for(let ix=-4;ix<=4;ix++)for(let iy=-3;iy<=3;iy++){if(Math.abs(ix)<=1&&Math.abs(iy)<=1)continue;const road=Math.abs(ix)%3===0||Math.abs(iy)%3===0;out.push({model:road?'road':'building',x:ox+ix*34,y:oy+iy*34,z:road?-.06:4,sx:road?16:13,sy:road?6:13,sz:road?.08:8});}out.push({model:'landmark',x:ox+55,y:oy+36,z:12,sx:8,sy:8,sz:24});return out;}
-  update(x,y){this.streamAround(x,y);return {sector:this.routeSector,loadedSectors:this.loadedSectors.size,instances:this.visible||[]};}
+  update(x,y){this.streamAround(x,y);return {sector:this.routeSector,loadedSectors:this.loadedSectors.size,instances:this.visible||[],asset:this.asset?{archive:this.asset.archive,entry:this.asset.entry,triangles:this.asset.mesh.indices.length/3}:null};}
 }
 export function installLifecycle({audio,canvas,runtime}={}){document.addEventListener('visibilitychange',()=>document.hidden?audio?.pause():audio?.resume());window.addEventListener('resize',()=>window.dispatchEvent(new CustomEvent('browser-game-resize',{detail:{width:innerWidth,height:innerHeight}})));canvas?.addEventListener('webglcontextlost',e=>{e.preventDefault();runtime?.contextLost('webgl-context-lost');});canvas?.addEventListener('webglcontextrestored',()=>runtime?.recoverContext());}
 export class GameRuntimeController {
@@ -163,11 +192,11 @@ export class WebGL2Renderer {
     this.canvas=canvas; this.gl=canvas.getContext('webgl2',{antialias:true,alpha:false});
     if(!this.gl) throw new Error('WebGL2 is required for the Phase 1 renderer');
     const gl=this.gl;
-    const vs=`#version 300 es\n in vec3 aPosition; in vec3 aNormal; uniform mat4 uMvp; uniform mat4 uModel; out vec3 vNormal; out vec3 vWorld; void main(){vNormal=mat3(uModel)*aNormal;vWorld=(uModel*vec4(aPosition,1.0)).xyz;gl_Position=uMvp*vec4(aPosition,1.0);}`;
-    const fs=`#version 300 es\n precision mediump float; in vec3 vNormal; in vec3 vWorld; uniform vec4 uColor; uniform vec3 uFogColor; uniform float uFogNear; uniform float uFogFar; out vec4 outColor; void main(){vec3 n=normalize(vNormal);float l=max(dot(n,normalize(vec3(-.45,.55,1.0))),.16);float rim=max(dot(n,normalize(vec3(.2,-.4,.8))),0.0)*.12;vec3 lit=uColor.rgb*(l+rim);float fog=smoothstep(uFogNear,uFogFar,length(vWorld));outColor=vec4(mix(lit,uFogColor,fog),uColor.a);}`;
+    const vs=`#version 300 es\n in vec3 aPosition; in vec3 aNormal; in vec2 aUv; uniform mat4 uMvp; uniform mat4 uModel; out vec3 vNormal; out vec3 vWorld; out vec2 vUv; void main(){vNormal=mat3(uModel)*aNormal;vWorld=(uModel*vec4(aPosition,1.0)).xyz;vUv=aUv;gl_Position=uMvp*vec4(aPosition,1.0);}`;
+    const fs=`#version 300 es\n precision mediump float; in vec3 vNormal; in vec3 vWorld; in vec2 vUv; uniform vec4 uColor; uniform sampler2D uTexture; uniform int uHasTexture; uniform vec3 uFogColor; uniform float uFogNear; uniform float uFogFar; out vec4 outColor; void main(){vec3 n=normalize(vNormal);float l=max(dot(n,normalize(vec3(-.45,.55,1.0))),.16);float rim=max(dot(n,normalize(vec3(.2,-.4,.8))),0.0)*.12;vec4 tex=uHasTexture==1?texture(uTexture,vUv):vec4(1.0);vec3 lit=uColor.rgb*tex.rgb*(l+rim);float fog=smoothstep(uFogNear,uFogFar,length(vWorld));outColor=vec4(mix(lit,uFogColor,fog),uColor.a*tex.a);}`;
     const compile=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;};
     this.program=gl.createProgram();gl.attachShader(this.program,compile(gl.VERTEX_SHADER,vs));gl.attachShader(this.program,compile(gl.FRAGMENT_SHADER,fs));gl.linkProgram(this.program);if(!gl.getProgramParameter(this.program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(this.program));
-    this.vao=gl.createVertexArray(); this.mvp=gl.getUniformLocation(this.program,'uMvp');this.model=gl.getUniformLocation(this.program,'uModel');this.color=gl.getUniformLocation(this.program,'uColor');this.fogColor=gl.getUniformLocation(this.program,'uFogColor');this.fogNear=gl.getUniformLocation(this.program,'uFogNear');this.fogFar=gl.getUniformLocation(this.program,'uFogFar'); gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
+    this.vao=gl.createVertexArray(); this.mvp=gl.getUniformLocation(this.program,'uMvp');this.model=gl.getUniformLocation(this.program,'uModel');this.color=gl.getUniformLocation(this.program,'uColor');this.texture=gl.getUniformLocation(this.program,'uTexture');this.hasTexture=gl.getUniformLocation(this.program,'uHasTexture');this.fogColor=gl.getUniformLocation(this.program,'uFogColor');this.fogNear=gl.getUniformLocation(this.program,'uFogNear');this.fogFar=gl.getUniformLocation(this.program,'uFogFar'); gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
     this.mesh=null; this.material={color:[.12,.65,.18,1]}; this.primitives={cube:this._uploadMesh(makeCubeMesh()),ground:this._uploadMesh(makeGroundMesh()),car:this._uploadMesh(makeCarMesh())}; this.primitives.ped=this.primitives.cube;
   }
   // Upload a renderer-neutral RenderWare mesh.  The parser deliberately lives
@@ -184,26 +213,51 @@ export class WebGL2Renderer {
   }
   _uploadMesh(mesh){
     const gl=this.gl;
-    const n=mesh.positions.length/3,normals=mesh.normals?.length===n*3?mesh.normals:new Float32Array(n*3);
-    const verts=new Float32Array(n*6);for(let i=0;i<n;i++){verts.set(mesh.positions.slice(i*3,i*3+3),i*6);verts.set(normals.slice(i*3,i*3+3),i*6+3);}
-    const vao=gl.createVertexArray();gl.bindVertexArray(vao);const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,verts,gl.STATIC_DRAW);const IndexArray=n>65535?Uint32Array:Uint16Array;const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new IndexArray(mesh.indices),gl.STATIC_DRAW);const pos=gl.getAttribLocation(this.program,'aPosition'),norm=gl.getAttribLocation(this.program,'aNormal');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(norm);gl.vertexAttribPointer(norm,3,gl.FLOAT,false,24,12);gl.bindVertexArray(null);
+    const n=mesh.positions.length/3,normals=mesh.normals?.length===n*3?mesh.normals:new Float32Array(n*3),uv=mesh.texcoords?.length===n*2?mesh.texcoords:new Float32Array(n*2);
+    const verts=new Float32Array(n*8);for(let i=0;i<n;i++){verts.set(mesh.positions.slice(i*3,i*3+3),i*8);verts.set(normals.slice(i*3,i*3+3),i*8+3);verts.set(uv.slice(i*2,i*2+2),i*8+6);}
+    const vao=gl.createVertexArray();gl.bindVertexArray(vao);const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,verts,gl.STATIC_DRAW);const IndexArray=n>65535?Uint32Array:Uint16Array;const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new IndexArray(mesh.indices),gl.STATIC_DRAW);const pos=gl.getAttribLocation(this.program,'aPosition'),norm=gl.getAttribLocation(this.program,'aNormal'),uvLoc=gl.getAttribLocation(this.program,'aUv');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,3,gl.FLOAT,false,32,0);gl.enableVertexAttribArray(norm);gl.vertexAttribPointer(norm,3,gl.FLOAT,false,32,12);gl.enableVertexAttribArray(uvLoc);gl.vertexAttribPointer(uvLoc,2,gl.FLOAT,false,32,24);gl.bindVertexArray(null);
     return {vao,vb,ib,count:mesh.indices.length,type:n>65535?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT};
   }
   loadDff(bytes,material={}){return this.setMesh(parseDffRenderMesh(bytes),material);}
   // Decoded TXD pixels take this single upload path for WebGL2. The texture is
   // retained by the renderer for the material binding stage.
   uploadTexture(pixels,options={}){if(this.textureObject)this.gl.deleteTexture(this.textureObject);this.textureObject=uploadRgbaTexture(this.gl,pixels,options);return this.textureObject;}
+  setTexture(pixels,options={}){this.uploadTexture(pixels,options);this.material.hasTexture=true;return this.textureObject;}
   resize(){const d=devicePixelRatio||1,w=Math.max(1,this.canvas.clientWidth*d),h=Math.max(1,this.canvas.clientHeight*d);if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}this.gl.viewport(0,0,w,h);}
   draw(s){const gl=this.gl;this.resize();const c=s.camera||{x:0,y:-8,z:4,lookX:s.x,lookY:s.y,lookZ:1};const view=lookAt(c.x,c.y,c.z,c.lookX,c.lookY,c.lookZ),proj=perspective(Math.PI/3,this.canvas.width/this.canvas.height,.1,1400);gl.clearColor(.38,.58,.72,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(this.program);gl.uniform3f(this.fogColor,.38,.58,.72);gl.uniform1f(this.fogNear,260);gl.uniform1f(this.fogFar,800);
-    const draw=(mesh,x,y,z,sx,sy,sz,color,angle=0)=>{if(!mesh)return;const model=composeScale(x,y,z,sx,sy,sz,angle);gl.uniformMatrix4fv(this.mvp,false,mul(proj,mul(view,model)));gl.uniformMatrix4fv(this.model,false,model);gl.uniform4f(this.color,...color,1);gl.bindVertexArray(mesh.vao);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.type,0);};
+    const draw=(mesh,x,y,z,sx,sy,sz,color,angle=0)=>{if(!mesh)return;const model=composeScale(x,y,z,sx,sy,sz,angle);gl.uniformMatrix4fv(this.mvp,false,mul(proj,mul(view,model)));gl.uniformMatrix4fv(this.model,false,model);gl.uniform4f(this.color,...color,1);gl.uniform1i(this.hasTexture,this.textureObject&&this.material.hasTexture?1:0);if(this.textureObject&&this.material.hasTexture){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.textureObject);gl.uniform1i(this.texture,0);}gl.bindVertexArray(mesh.vao);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.type,0);};
     const px=s.x||0,py=s.y||0;draw(this.primitives.ground,px,py,-.18,900,900,.1,[.18,.29,.18]);
     for(const o of (s.scene?.instances||[])){const road=o.model==='road';const color=road?[.09,.1,.105]:o.model==='landmark'?[.68,.3,.12]:[.28,.34,.39];const mesh=road?this.primitives.cube:this.primitives.cube;draw(mesh,o.x,o.y,o.z,o.sx||12,o.sy||12,o.sz||8,color,o.rz||0);if(road){draw(this.primitives.cube,o.x,o.y,.02,(o.sx||12)*.82,(o.sy||12)*.06,.025,[.72,.62,.28],o.rz||0);}}
+    // The selected mounted DFF is drawn independently of procedural sector
+    // proxies so the screenshot/evidence path proves real game geometry is on
+    // the GPU. Its native dimensions vary widely, so normalize conservatively.
+    if(s.scene?.asset&&this.mesh)draw(this.mesh,px+9,py+7,.2,0.18,0.18,0.18,this.material.color,s.heading*Math.PI/180);
     for(const p of (s.peds||[]))draw(this.primitives.ped,p.x,p.y,.7,.55,.55,1.6,p.health>0?[.86,.68,.2]:[.35,.1,.1]);
     draw(this.primitives.car,px,py,.85,2.0,4.0,1.15,s.interior?[.9,.48,.08]:[.06,.42,.68],s.heading*Math.PI/180);gl.bindVertexArray(null);}
 }
 // Minimal, legal RenderWare geometry reader for browser-mounted DFF bytes.
 // It accepts the portable non-native geometry layout used by SA DFF assets.
-function parseDffRenderMesh(bytes){const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes),d=new DataView(b.buffer,b.byteOffset,b.byteLength),u=(o)=>d.getUint32(o,true),f=(o)=>d.getFloat32(o,true);if(b.byteLength<12||u(0)!==0x10)throw new Error('unsupported DFF root');for(let at=12;at+12<=b.byteLength;){const type=u(at),size=u(at+4),p=at+12;if(p+size>b.byteLength)break;if(type===0x0f&&size>=16){let q=p;const flags=u(q),tri=u(q+4),nv=u(q+8),morph=u(q+12);q+=16;if(!morph||nv<3||nv>1000000||tri<1||tri>2000000||(flags&0x01000000))continue;const uvSets=(flags>>16)&255; q+=(flags&8)?nv*4:0;q+=nv*uvSets*8;const triAt=q;q+=tri*8;q+=16;const hasV=u(q);const hasN=u(q+4);q+=8;if(!hasV||q+nv*12>b.byteLength)continue;const positions=new Float32Array(nv*3);for(let i=0;i<positions.length;i++)positions[i]=f(q+i*4);q+=nv*12;const normals=hasN&&q+nv*12<=b.byteLength?new Float32Array(b.buffer,b.byteOffset+q,nv*3):null;const indices=new Uint32Array(tri*3);for(let i=0;i<tri;i++){indices[i*3]=d.getUint16(triAt+i*8,true);indices[i*3+1]=d.getUint16(triAt+i*8+2,true);indices[i*3+2]=d.getUint16(triAt+i*8+4,true);}return {positions,normals,indices};}at=p+size;}throw new Error('DFF contains no portable geometry');}
+export function parseDffRenderMesh(bytes){
+  const b=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes),d=new DataView(b.buffer,b.byteOffset,b.byteLength),u=(o)=>d.getUint32(o,true),f=(o)=>d.getFloat32(o,true);
+  if(b.byteLength<12||u(0)!==0x10)throw new Error('unsupported DFF root');
+  // Match the native bounded geometry reader: SA DFFs nest geometry inside
+  // clump/frame/list chunks, so scan aligned chunk headers rather than only
+  // inspecting the root's immediate children.
+  for(let at=12;at+12<=b.byteLength;at+=4){if(u(at)!==0x0f)continue;const size=u(at+4),p=at+12,end=p+size;if(size<16||end>b.byteLength)continue;let q=p;
+    // PC SA stores a Struct child (type 1, size, version) before the
+    // geometry fields; retain direct-payload support for portable fixtures.
+    let dataEnd=end;if(u(q)===1){const structSize=u(q+4);if(structSize>dataEnd-q-12)continue;q+=12;dataEnd=q+structSize;}
+    const flags=u(q),tri=u(q+4),nv=u(q+8),morph=u(q+12);q+=16;
+    if(!morph||morph>16||nv<3||nv>10000000||tri<1||tri>20000000||(flags&0x01000000))continue;
+    let uvSets=(flags>>16)&255;if(!uvSets&&(flags&4))uvSets=1;if(uvSets>8)continue;
+    const prelit=!!(flags&8);const uvAt=q+(prelit?nv*4:0);q=uvAt+nv*uvSets*8;const triAt=q;q+=tri*8;q+=16;
+    if(q+8>dataEnd)continue;const hasV=u(q),hasN=u(q+4);q+=8;if(!hasV||q+nv*12>dataEnd)continue;
+    const positions=new Float32Array(nv*3);for(let i=0;i<positions.length;i++)positions[i]=f(q+i*4);q+=nv*12;
+    const normals=hasN&&q+nv*12<=dataEnd?new Float32Array(b.buffer,b.byteOffset+q,nv*3):null;const texcoords=new Float32Array(nv*2);for(let i=0;i<nv&&uvSets;i++){texcoords[i*2]=f(uvAt+i*uvSets*8);texcoords[i*2+1]=f(uvAt+i*uvSets*8+4);}const indices=new Uint32Array(tri*3);let valid=true;
+    for(let i=0;i<tri;i++){const a=d.getUint16(triAt+i*8,true),bb=d.getUint16(triAt+i*8+2,true),c=d.getUint16(triAt+i*8+4,true);if(a>=nv||bb>=nv||c>=nv){valid=false;break;}indices[i*3]=a;indices[i*3+1]=bb;indices[i*3+2]=c;}if(valid)return {positions,normals,texcoords,indices};
+  }throw new Error('DFF contains no portable geometry');
+}
+export { parseDffRenderMesh };
 
 // A legal five-vertex RenderWare fixture exercises the same upload/parser path
 // as an externally mounted user-owned DFF without bundling proprietary bytes.
