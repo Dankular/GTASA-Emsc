@@ -20,7 +20,35 @@ export class SaveManager {
 }
 export class RangeVfs {
   constructor(fetcher=fetch){this.fetcher=fetcher;}
-  async read(url,offset,size){const r=await this.fetcher(url,{headers:{Range:`bytes=${offset}-${offset+size-1}`}});if(!(r.ok||r.status===206))throw new Error(`asset read failed: ${r.status}`);return new Uint8Array(await r.arrayBuffer());}
+  async read(url,offset,size){
+    if(!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(size)||size<0)throw new Error('invalid asset range');
+    if(size===0)return new Uint8Array();
+    const r=await this.fetcher(url,{headers:{Range:`bytes=${offset}-${offset+size-1}`}});
+    if(!(r.ok||r.status===206))throw new Error(`asset read failed: ${r.status}`);
+    const bytes=new Uint8Array(await r.arrayBuffer());
+    // Static hosting commonly ignores Range and returns 200/full content.
+    if(r.status===200&&bytes.length!==size){
+      if(offset+size>bytes.length)throw new Error(`asset range exceeds response: ${offset}+${size}>${bytes.length}`);
+      return bytes.slice(offset,offset+size);
+    }
+    if(bytes.length!==size)throw new Error(`short asset range: expected ${size}, got ${bytes.length}`);
+    return bytes;
+  }
+}
+export class ContentManifest {
+  constructor(manifest,baseUrl='.',vfs=new RangeVfs()){this.manifest=manifest;this.baseUrl=baseUrl;this.vfs=vfs;this.entries=new Map();
+    if(!manifest||manifest.version!==1||!Array.isArray(manifest.assets))throw new Error('unsupported content manifest');
+    for(const entry of manifest.assets){
+      if(!entry?.id||!entry.path||!Number.isSafeInteger(entry.size)||entry.size<0)throw new Error('invalid content manifest entry');
+      if(entry.path.startsWith('/')||entry.path.split('/').includes('..')||this.entries.has(entry.id))throw new Error(`unsafe content path: ${entry.path}`);
+      this.entries.set(entry.id,entry);
+    }
+  }
+  static async load(url='./content-manifest.json',fetcher=fetch){const r=await fetcher(url);if(!r.ok)throw new Error(`content manifest failed: ${r.status}`);return new ContentManifest(await r.json(),new URL('.',new URL(url,globalThis.location?.href||'http://localhost/')).href,new RangeVfs(fetcher));}
+  entry(id){const entry=this.entries.get(id);if(!entry)throw new Error(`content asset not found: ${id}`);return entry;}
+  url(entry){return new URL(entry.path,this.baseUrl).href;}
+  async read(id,offset=0,size=null){const entry=this.entry(id);const length=size??(entry.size-offset);if(offset+length>entry.size)throw new Error(`content range exceeds manifest: ${id}`);return this.vfs.read(this.url(entry),offset,length);}
+  async readVerified(id){const entry=this.entry(id);const bytes=await this.read(id,0,entry.size);if(entry.sha256&&globalThis.crypto?.subtle){const digest=await crypto.subtle.digest('SHA-256',bytes);const hash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');if(hash!==entry.sha256.toLowerCase())throw new Error(`content hash mismatch: ${id}`);}return bytes;}
 }
 export function installLifecycle({audio}={}){document.addEventListener('visibilitychange',()=>document.hidden?audio?.pause():audio?.resume());window.addEventListener('resize',()=>window.dispatchEvent(new CustomEvent('browser-game-resize',{detail:{width:innerWidth,height:innerHeight}})));}
 export class GameRuntimeController {

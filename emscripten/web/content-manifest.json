@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "policy": "Browser acceptance fixture only; proprietary game files are mounted externally.",
+  "assets": [
+    {
+      "id": "phase1-asset-probe",
+      "path": "asset-probe.txt",
+      "size": 76,
+      "sha256": "c4e43837a43a5244c9e215dc82a6f5a3a928168663f2c824bde530edd0645066"
+    }
+  ]
+}

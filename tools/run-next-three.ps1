@@ -55,6 +55,19 @@ Invoke-Step 'wasmGameplayAbi' {
   if ($LASTEXITCODE -ne 0) { throw "WASM gameplay ABI smoke failed with exit code $LASTEXITCODE" }
 }
 
+Invoke-Step 'browserContentSmoke' {
+  node (Join-Path $root 'tools\browser-content-smoke.mjs')
+  if ($LASTEXITCODE -ne 0) { throw "Browser content smoke failed with exit code $LASTEXITCODE" }
+}
+
+Invoke-Step 'browserContract' {
+  $contractReport = Join-Path $root 'reports\browser-contract.json'
+  $env:BROWSER_CONTRACT_REPORT = $contractReport
+  node (Join-Path $root 'tools\browser-contract-smoke.mjs')
+  if ($LASTEXITCODE -ne 0) { throw "Browser contract smoke failed with exit code $LASTEXITCODE" }
+  Remove-Item Env:BROWSER_CONTRACT_REPORT -ErrorAction SilentlyContinue
+}
+
 $full = [IO.Path]::GetFullPath($Report)
 New-Item -ItemType Directory -Force -Path (Split-Path $full) | Out-Null
 $results | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $full -Encoding utf8
