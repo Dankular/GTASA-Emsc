@@ -40,6 +40,17 @@ export class RangeVfs {
     return bytes;
   }
 }
+// File-backed ranges are bounded Blob slices; complete archives never enter
+// the WASM heap during an asset read.
+export class FileRangeVfs {
+  constructor(files=new Map()){this.files=files;}
+  async read(path,offset,size){const key=path.startsWith('http')?decodeURIComponent(new URL(path).pathname.replace(/^\//,'')):path;const file=this.files.get(key);if(!file)throw new Error(`mounted asset not found: ${key}`);if(!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(size)||size<0||offset+size>file.size)throw new Error('invalid mounted asset range');return new Uint8Array(await file.slice(offset,offset+size).arrayBuffer());}
+}
+// Persistent OPFS ranges retain handles and materialize only requested slices.
+export class OpfsRangeVfs {
+  constructor(handles=new Map()){this.handles=handles;}
+  async read(path,offset,size){const key=path.startsWith('http')?decodeURIComponent(new URL(path).pathname.replace(/^\//,'')):path;const handle=this.handles.get(key);if(!handle)throw new Error(`OPFS asset not found: ${key}`);const file=await handle.getFile();if(offset<0||size<0||offset+size>file.size)throw new Error('invalid OPFS asset range');return new Uint8Array(await file.slice(offset,offset+size).arrayBuffer());}
+}
 // Renderer-neutral bridge for TXD metadata emitted by the native/WASM asset
 // parser. The bridge does not guess compressed pixel layouts: those are handed
 // to a decoder before GPU upload. This keeps WebGPU policy out of the archive parser.
@@ -63,6 +74,14 @@ export class ContentManifest {
   url(entry){return new URL(entry.path,this.baseUrl).href;}
   async read(id,offset=0,size=null){const entry=this.entry(id);const length=size??(entry.size-offset);if(offset+length>entry.size)throw new Error(`content range exceeds manifest: ${id}`);return this.vfs.read(this.url(entry),offset,length);}
   async readVerified(id){const entry=this.entry(id);const bytes=await this.read(id,0,entry.size);if(entry.sha256&&globalThis.crypto?.subtle){const digest=await crypto.subtle.digest('SHA-256',bytes);const hash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');if(hash!==entry.sha256.toLowerCase())throw new Error(`content hash mismatch: ${id}`);}return bytes;}
+}
+export class UserInstallMount {
+  constructor(manifest,vfs){this.manifest=manifest;this.vfs=vfs;this.mountedAt=Date.now();}
+  static async fromFiles(files){const map=new Map(),assets=[];for(const file of files){const path=(file.webkitRelativePath||file.name).replaceAll('\\','/').replace(/^.*?\//,'');if(!path||path.split('/').includes('..')||path.startsWith('/'))continue;const ext=path.slice(path.lastIndexOf('.')).toLowerCase();if(!['.img','.txd','.dff','.col','.ifp','.ipl','.ide','.dat','.scm','.wav','.mp3','.ogg'].includes(ext))continue;map.set(path,file);assets.push({id:path,path,size:file.size,sha256:null});}if(!assets.length)throw new Error('no supported San Andreas assets selected');const manifest=new ContentManifest({version:1,assets},'http://user-install.invalid/',new FileRangeVfs(map));return new UserInstallMount(manifest,new FileRangeVfs(map));}
+  static async pickDirectory(){if(!globalThis.showDirectoryPicker)throw new Error('directory picker unavailable');const root=await showDirectoryPicker({mode:'read'}),files=[];const walk=async(dir,prefix='')=>{for await(const [name,entry] of dir.entries()){if(entry.kind==='file'){const f=await entry.getFile();Object.defineProperty(f,'webkitRelativePath',{value:`${prefix}${name}`});files.push(f);}else if(entry.kind==='directory')await walk(entry,`${prefix}${name}/`);}};await walk(root);return UserInstallMount.fromFiles(files);}
+  entry(id){return this.manifest.entry(id);}
+  async read(id,offset=0,size=null){return this.manifest.read(id,offset,size);}
+  async persistToOpfs(name='gtasa-install'){if(!navigator.storage?.getDirectory)throw new Error('OPFS unavailable');const root=await navigator.storage.getDirectory(),dir=await root.getDirectoryHandle(name,{create:true});for(const entry of this.manifest.manifest.assets){const file=this.vfs.files?.get(entry.path);if(!file)continue;const out=await dir.getFileHandle(entry.path.replaceAll('/','_'),{create:true}),w=await out.createWritable();await w.write(await file.arrayBuffer());await w.close();}return name;}
 }
 export function installLifecycle({audio,canvas,runtime}={}){document.addEventListener('visibilitychange',()=>document.hidden?audio?.pause():audio?.resume());window.addEventListener('resize',()=>window.dispatchEvent(new CustomEvent('browser-game-resize',{detail:{width:innerWidth,height:innerHeight}})));canvas?.addEventListener('webglcontextlost',e=>{e.preventDefault();runtime?.contextLost('webgl-context-lost');});canvas?.addEventListener('webglcontextrestored',()=>runtime?.recoverContext());}
 export class GameRuntimeController {

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { UserInstallMount } from '../emscripten/web/browser_services.js';
+const file = new Blob([new Uint8Array([...Array(64).keys()])]);
+Object.defineProperty(file, 'name', { value: 'gta3.img' });
+const mount = await UserInstallMount.fromFiles([file]);
+assert.equal(mount.manifest.entries.size, 1);
+const bytes = await mount.read('gta3.img', 16, 8);
+assert.deepEqual([...bytes], [16,17,18,19,20,21,22,23]);
+await assert.rejects(() => mount.read('gta3.img', 60, 8));
+console.log(JSON.stringify({ installMountSmoke: 'passed', assets: mount.manifest.entries.size, rangeBytes: bytes.length }));

@@ -27,13 +27,14 @@
     <button id="save-runtime">Save runtime</button>
     <button id="load-runtime">Load runtime</button>
     <button id="radio">Radio</button>
+    <button id="import-install">Import local install</button>
     <div id="touch-controls"><button id="touch-left">◀</button><button id="touch-accelerate">▲</button><button id="touch-brake">▼</button><button id="touch-right">▶</button></div>
     <canvas id="game" width="960" height="540" aria-label="GTA San Andreas game canvas"></canvas>
     <pre id="status">Loading WebAssembly module…</pre>
   </main>
   <section id="menu"><div><h2>San Andreas</h2><button id="new-game">New Game</button></div></section>
   <script type="module">
-    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, GameRuntimeController, WebGL2Renderer, installLifecycle } from './browser_services.js';
+    import { BrowserInput, BrowserAudioGate, SaveManager, ContentManifest, UserInstallMount, GameRuntimeController, WebGL2Renderer, installLifecycle } from './browser_services.js';
     const status = document.querySelector('#status');
     const canvas = document.querySelector('#game');
     const renderer = new WebGL2Renderer(canvas);
@@ -41,6 +42,7 @@
     const audio = new BrowserAudioGate();
     const saves = new SaveManager();
     installLifecycle({audio});
+    document.querySelector('#import-install').onclick=async()=>{try{const mount=await UserInstallMount.pickDirectory();const sample=mount.manifest.entries.keys().next().value;status.dataset.install=`mounted:${mount.manifest.entries.size}`;status.textContent=`User install mounted (${mount.manifest.entries.size} assets); range reads remain file-backed`;if(sample)status.dataset.installProbe=(await mount.read(sample,0,Math.min(16,mount.entry(sample).size))).length;}catch(error){status.className='error';status.textContent=`Install import failed: ${error?.message||error}`;}};
     document.querySelector('#launch').onclick = async () => { await audio.unlock(); await document.documentElement.requestFullscreen?.(); };
     document.querySelector('#save').onclick = async () => { await saves.put('probe',{ok:true,at:Date.now(),input:input.pollGamepad()}); status.dataset.save='idbfs-ready'; };
     try {

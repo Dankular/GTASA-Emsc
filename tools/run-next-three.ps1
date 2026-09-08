@@ -67,6 +67,11 @@ Invoke-Step 'browserContentSmoke' {
   if ($LASTEXITCODE -ne 0) { throw "Browser content smoke failed with exit code $LASTEXITCODE" }
 }
 
+Invoke-Step 'installMountSmoke' {
+  node (Join-Path $root 'tools\install-mount-smoke.mjs')
+  if ($LASTEXITCODE -ne 0) { throw "Install mount smoke failed with exit code $LASTEXITCODE" }
+}
+
 Invoke-Step 'browserContract' {
   $contractReport = Join-Path $root 'reports\browser-contract.json'
   $env:BROWSER_CONTRACT_REPORT = $contractReport
