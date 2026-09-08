@@ -27,7 +27,7 @@ bool parseColCollision(const std::vector<uint8_t>& b, CollisionMesh& out) {
     if (nameEnd < b.size() && nameEnd+4 <= b.size()) {
       const uint32_t spheres=u32(b.data()+nameEnd+1);
       if (spheres && spheres <= 10000 && nameEnd+5+uint64_t(spheres)*16 <= b.size() && (!recordSize || recordSize <= b.size())) {
-        out.vertices=spheres; out.triangles=0;
+        out.vertices=spheres; out.triangles=0; out.points.reserve(spheres);
         out.bounds.minX=out.bounds.minY=out.bounds.minZ=std::numeric_limits<float>::max();
         out.bounds.maxX=out.bounds.maxY=out.bounds.maxZ=std::numeric_limits<float>::lowest();
         for (uint32_t i=0;i<spheres;++i) {
@@ -39,6 +39,7 @@ bool parseColCollision(const std::vector<uint8_t>& b, CollisionMesh& out) {
           if (!finite(x)||!finite(y)||!finite(z)||!finite(r)||r<0||r>1.0e6f) { x=y=z=0; r=0; }
           out.bounds.minX=std::min(out.bounds.minX,x-r); out.bounds.minY=std::min(out.bounds.minY,y-r); out.bounds.minZ=std::min(out.bounds.minZ,z-r);
           out.bounds.maxX=std::max(out.bounds.maxX,x+r); out.bounds.maxY=std::max(out.bounds.maxY,y+r); out.bounds.maxZ=std::max(out.bounds.maxZ,z+r);
+          out.points.push_back({x,y,z});
         }
         return true;
       }
@@ -54,7 +55,7 @@ bool parseColCollision(const std::vector<uint8_t>& b, CollisionMesh& out) {
     if (spheres > 100000 || boxes > 100000 || verts > 2000000 || faces > 2000000) continue;
     const uint64_t minimum = uint64_t(h)+16 + uint64_t(spheres)*20 + uint64_t(boxes)*28 + uint64_t(verts)*12 + uint64_t(faces)*8;
     if (minimum > b.size()) continue;
-    out.vertices=verts; out.triangles=faces;
+    out.vertices=verts; out.triangles=faces; out.points.reserve(verts); out.faces.reserve(faces);
     // Bounds are represented by the vertex cloud. This avoids trusting the
     // optional header bounds across COL revisions and gives collision queries
     // one consistent representation in native and WASM builds.
@@ -65,16 +66,26 @@ bool parseColCollision(const std::vector<uint8_t>& b, CollisionMesh& out) {
       for (uint32_t i=0;i<verts;++i) {
         const uint8_t* p=b.data()+vertexAt+size_t(i)*12; float x=f32(p),y=f32(p+4),z=f32(p+8);
         if (!finite(x)||!finite(y)||!finite(z)) return false;
+        out.points.push_back({x,y,z});
         out.bounds.minX=std::min(out.bounds.minX,x); out.bounds.minY=std::min(out.bounds.minY,y); out.bounds.minZ=std::min(out.bounds.minZ,z);
         out.bounds.maxX=std::max(out.bounds.maxX,x); out.bounds.maxY=std::max(out.bounds.maxY,y); out.bounds.maxZ=std::max(out.bounds.maxZ,z);
       }
+    }
+    const size_t faceAt=vertexAt+size_t(verts)*12;
+    for(uint32_t i=0;i<faces;++i) {
+      const uint8_t* p=b.data()+faceAt+size_t(i)*8;
+      uint32_t a=uint32_t(p[0])|(uint32_t(p[1])<<8), c=uint32_t(p[2])|(uint32_t(p[3])<<8), d=uint32_t(p[4])|(uint32_t(p[5])<<8);
+      if(a>=verts||c>=verts||d>=verts) { out.faces.clear(); break; }
+      out.faces.push_back({a,c,d});
     }
     return true;
   }
   return false;
 }
 
-bool WorldStream::open(const std::string& path) { pending_.clear(); loaded_.clear(); return archive_.open(path); }
+bool WorldStream::open(const std::string& path) { pending_.clear(); loaded_.clear(); definitions_.clear(); instances_.clear(); return archive_.open(path); }
+bool WorldStream::loadIde(const std::string& path) { std::ifstream f(path,std::ios::binary); if(!f)return false; std::string text((std::istreambuf_iterator<char>(f)),{}); return parseIdeText(text,definitions_); }
+bool WorldStream::loadIpl(const std::string& path) { std::ifstream f(path,std::ios::binary); if(!f)return false; std::string text((std::istreambuf_iterator<char>(f)),{}); return parseIplText(text,instances_); }
 bool WorldStream::request(const std::string& name, int priority) {
   return requestAt(name, priority, 0, 0);
 }
@@ -139,7 +150,24 @@ bool WorldStream::raycast(const CollisionVec3& o, const CollisionVec3& d, float 
       if (std::abs(dir[axis]) < 1.0e-8f) { if (origin[axis]<mn[axis] || origin[axis]>mx[axis]) { hit=false; break; } }
       else { float a=(mn[axis]-origin[axis])/dir[axis], b=(mx[axis]-origin[axis])/dir[axis]; if(a>b) std::swap(a,b); tmin=std::max(tmin,a); tmax=std::min(tmax,b); if(tmin>tmax) { hit=false; break; } }
     }
-    if (hit && tmin<best) { best=tmin; out={l.name,tmin,l.collision.bounds}; found=true; }
+    if (hit && tmin<best) {
+      float exact=tmin;
+      if (!l.collision.faces.empty()) {
+        exact=std::numeric_limits<float>::infinity();
+        for(const auto& f:l.collision.faces) {
+          if(f.a>=l.collision.points.size()||f.b>=l.collision.points.size()||f.c>=l.collision.points.size())continue;
+          const auto&a=l.collision.points[f.a]; const auto&b=l.collision.points[f.b]; const auto&c=l.collision.points[f.c];
+          const CollisionVec3 e1{b.x-a.x,b.y-a.y,b.z-a.z},e2{c.x-a.x,c.y-a.y,c.z-a.z};
+          const CollisionVec3 p{d.y*e2.z-d.z*e2.y,d.z*e2.x-d.x*e2.z,d.x*e2.y-d.y*e2.x};
+          const float det=e1.x*p.x+e1.y*p.y+e1.z*p.z; if(std::abs(det)<1e-7f)continue; const float inv=1.0f/det;
+          const CollisionVec3 t{o.x-a.x,o.y-a.y,o.z-a.z}; const float u=(t.x*p.x+t.y*p.y+t.z*p.z)*inv; if(u<0||u>1)continue;
+          const CollisionVec3 q{t.y*e1.z-t.z*e1.y,t.z*e1.x-t.x*e1.z,t.x*e1.y-t.y*e1.x}; const float v=(d.x*q.x+d.y*q.y+d.z*q.z)*inv; if(v<0||u+v>1)continue;
+          const float distance=(e2.x*q.x+e2.y*q.y+e2.z*q.z)*inv; if(distance>=0&&distance<exact)exact=distance;
+        }
+        if(!std::isfinite(exact)||exact>=best)continue;
+      }
+      best=exact; out={l.name,exact,l.collision.bounds}; found=true;
+    }
   }
   return found;
 }
