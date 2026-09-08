@@ -20,6 +20,14 @@ void SaAdapters::tick(float dt,const InputState&i){
  vehicle_.velocity={std::cos(r)*vehicle_.speed,std::sin(r)*vehicle_.speed,0};
  vehicle_.position.x+=vehicle_.velocity.x*dt;
  vehicle_.position.y+=vehicle_.velocity.y*dt;
+ // World-stream boundary collision: the browser world owns a finite loaded
+ // sector, so stop and resolve the vehicle at its edge instead of allowing it
+ // to tunnel into unloaded geometry.
+ constexpr float worldEdge=450.f;
+ if(vehicle_.position.x < -worldEdge){vehicle_.position.x=-worldEdge;vehicle_.speed=0.f;}
+ if(vehicle_.position.x > worldEdge){vehicle_.position.x=worldEdge;vehicle_.speed=0.f;}
+ if(vehicle_.position.y < -worldEdge){vehicle_.position.y=-worldEdge;vehicle_.speed=0.f;}
+ if(vehicle_.position.y > worldEdge){vehicle_.position.y=worldEdge;vehicle_.speed=0.f;}
  updateCamera(dt,i);
  for(auto& p:peds_) if(p.active&&p.task==1) p.position.x+=dt*1.5f;
 }
