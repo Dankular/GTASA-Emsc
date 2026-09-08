@@ -2,8 +2,8 @@
 /emscripten/build*/
 /emscripten/web/*.js
 /emscripten/web/*.wasm
+/reports/*.json
 
 # Local tooling
 .cache/
 .vscode/
-
