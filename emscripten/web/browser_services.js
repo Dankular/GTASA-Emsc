@@ -103,10 +103,11 @@ export class UserInstallMount {
   // server must be started with GTASA_ASSET_ROOT; no proprietary bytes are
   // copied into the web bundle or repository.
   static async fromServer(archiveUrl='/installed/models/gta3.img'){
-    const r=await fetch(archiveUrl,{method:'HEAD'});if(!r.ok)throw new Error(`installed archive unavailable: ${r.status}`);
+    const fetcher=globalThis.fetch?.bind(globalThis);if(!fetcher)throw new Error('Fetch API unavailable');
+    const r=await fetcher(archiveUrl,{method:'HEAD'});if(!r.ok)throw new Error(`installed archive unavailable: ${r.status}`);
     const size=Number(r.headers.get('content-length'));if(!Number.isSafeInteger(size)||size<8)throw new Error('installed archive size unavailable');
-    const path=archiveUrl.split('/').pop();const manifest=new ContentManifest({version:1,assets:[{id:path,path,size,sha256:null}]},new URL('.',new URL(archiveUrl,globalThis.location?.href||'http://localhost/')).href,new RangeVfs());
-    return new UserInstallMount(manifest,new RangeVfs());
+    const path=archiveUrl.split('/').pop();const manifest=new ContentManifest({version:1,assets:[{id:path,path,size,sha256:null}]},new URL('.',new URL(archiveUrl,globalThis.location?.href||'http://localhost/')).href,new RangeVfs(fetcher));
+    return new UserInstallMount(manifest,new RangeVfs(fetcher));
   }
   entry(id){return this.manifest.entry(id);}
   async read(id,offset=0,size=null){return this.manifest.read(id,offset,size);}
