@@ -29,6 +29,13 @@ Invoke-Step 'servicesSmoke' {
   if ($LASTEXITCODE -ne 0) { throw "sa_services_test failed with exit code $LASTEXITCODE" }
 }
 
+Invoke-Step 'assetArchiveSmoke' {
+  cmake --build $native --config Release --target sa_img_archive_test
+  $exe = Join-Path $native 'Release\sa_img_archive_test.exe'
+  & $exe
+  if ($LASTEXITCODE -ne 0) { throw "sa_img_archive_test failed with exit code $LASTEXITCODE" }
+}
+
 Invoke-Step 'wasmAssembly' {
   if (Test-Path (Join-Path $Emsdk 'emsdk_env.ps1')) { & (Join-Path $Emsdk 'emsdk_env.ps1') | Out-Null }
   & (Join-Path $root 'emscripten\scripts\build-web.ps1')

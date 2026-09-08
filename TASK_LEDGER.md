@@ -21,6 +21,7 @@ browser owns implementation state. `gta-reversed`/ASI work is not a gate.
 | Binary evidence walker | P1.1/P1.2 | Done | `tools/walk-sa-binary.ps1`; PE fingerprint, imports, sections, symbols and bounded subsystem string evidence |
 | Three-call validation | P1.3/P1.4/P1.6 | Done for runtime probe | `tools/run-next-three.ps1`; native boot/services and Emscripten WASM assembly all pass |
 | Installed-content boundary | P1.4 | Implemented | `tools/index-sa-assets.ps1`; hashes local user-owned content without committing assets |
+| IMG archive reader | P1.4 | Implemented | `runtime/sa_img_archive.*`; reads VER2 directory entries and bounded file ranges; native smoke passes against installed `gta3.img` |
 
 The source inventory and native import evidence are now merged by
 `tools/annotate-subsystems.ps1`. This closes the evidence-mapping gap; it does

@@ -32,4 +32,6 @@ cmake --build emscripten\build-native --config Release --target sa_adapter_test
 emscripten\build-native\Release\sa_adapter_test.exe
 cmake --build emscripten\build-native --config Release --target sa_services_test
 emscripten\build-native\Release\sa_services_test.exe
+cmake --build emscripten\build-native --config Release --target sa_img_archive_test
+emscripten\build-native\Release\sa_img_archive_test.exe
 ```
